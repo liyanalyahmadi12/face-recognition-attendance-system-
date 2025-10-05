@@ -46,6 +46,7 @@ flowchart LR
     CMP --> VOTE[Voting System\n(require 2/2)]
     VOTE --> LOG[Log to DB\n(5s cooldown)]
 
+
 db.py — Database Layer
 
 SQLAlchemy ORM models and session management.
@@ -139,6 +140,7 @@ flowchart TD
     J --> L{Cooldown ≥ 5s?}
     L -->|yes| M[Log to DB\n(gate 1–4)]
     L -->|no| N[Wait & show cooldown]
+
 
 Key Thresholds
 
