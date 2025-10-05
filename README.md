@@ -1,129 +1,71 @@
 (note the file has a gitignore as we have api key for email notification that sends absent and late users email as shown  <img width="1920" height="1200" alt="image" src="https://github.com/user-attachments/assets/6d437adf-3d35-437f-a2bc-bd13bc749515" />
 
-Smart Attendance System — Complete Documentation
+# Smart Attendance System — Complete Documentation
 
 A real-time face recognition attendance system that identifies people via webcam and logs check-ins at designated times throughout the day.
 
-Table of Contents
+---
 
-System Overview
+## Table of Contents
+- [System Overview](#system-overview)
+- [Architecture](#architecture)
+- [File-by-File Explanation](#file-by-file-explanation)
+  - [db.py — Database Layer](#dbpy--database-layer)
+  - [attendance_logic.py — Business Rules](#attendance_logicpy--business-rules)
+  - [recognition.py — Face Recognition Engine](#recognitionpy--face-recognition-engine)
+  - [seed_users.py — Initial Enrollment](#seed_userspy--initial-enrollment)
+  - [enroll_webcam.py — Live Enrollment](#enroll_webcampy--live-enrollment)
+  - [live_engine.py — Real-Time Engine](#live_enginepy--real-time-engine)
+- [Key Thresholds](#key-thresholds)
+- [Configuration Variables](#configuration-variables)
+  - [Speed vs Accuracy](#speed-vs-accuracy)
+  - [Model Selection](#model-selection)
+- [Flask Dashboard](#flask-dashboard)
+- [Main Entry Point (CLI)](#main-entry-point-cli)
+- [Installation & Setup](#installation--setup)
+- [Security & Privacy](#security--privacy)
+- [Troubleshooting](#troubleshooting)
+- [Technical Details](#technical-details)
 
-Architecture
+---
 
-File-by-File Explanation
+## System Overview
+This system detects faces, creates embeddings, compares them to enrolled users, and logs attendance when a match is confirmed in an active time window (“gate”).
 
-1. db.py — Database Layer
+---
 
-2. attendance_logic.py — Business Rules
+## Architecture
 
-3. recognition.py — Face Recognition Engine
+> GitHub supports Mermaid. If you’d rather keep ASCII, keep it inside triple backticks.
 
-4. seed_users.py — Initial Enrollment
+```mermaid
+flowchart LR
+    CAM[Camera Input] --> DET{Face Detect<br/>(MediaPipe / Haar)}
+    DET --> CROP[Crop Face + Preprocess]
+    CROP --> EMB[DeepFace Embedding<br/>(128/512-dim)]
+    EMB --> CMP[Compare with DB Embeddings<br/>(cosine distance)]
+    CMP --> VOTE[Voting System<br/>(require 2/2)]
+    VOTE --> LOG[Log to DB<br/>(5s cooldown)]
+db.py — Database Layer
 
-5. enroll_webcam.py — Live Enrollment
+SQLAlchemy ORM models and session management.
 
-6. live_engine.py — Real-Time Engine
+User
 
-Key Thresholds
+user_id (PK) | name (unique) | face_embedding (JSON string of floats)
+email (optional) | external_id (optional)
 
-Configuration Variables
 
-Speed vs Accuracy
+Attendance (composite key: user_id + date)
 
-Model Selection
+user_id (PK/FK) | date (PK, YYYY-MM-DD) | quarter_id
+checkin1_time | checkin2_time | checkin3_time | checkin4_time
 
-Flask Dashboard
+attendance_logic.py — Business Rules
 
-Main Entry Point (CLI)
+Defines four daily windows and helpers.
 
-Installation & Setup
-
-Security & Privacy
-
-Troubleshooting
-
-Technical Details
-
-System Overview
-
-This system performs face detection, creates embeddings, compares them to a database of enrolled users, and logs attendance to the database when a match is confirmed in an active time window (“gate”).
-
-Architecture
-┌─────────────────────────────────────────────────────────────┐
-│                    SYSTEM ARCHITECTURE                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐      ┌──────────────┐                     │
-│  │   Camera     │─────▶│ Face Detect  │                     │
-│  │   Input      │      │ (MediaPipe/  │                     │
-│  └──────────────┘      │   Haar)      │                     │
-│                        └──────┬───────┘                     │
-│                               │                             │
-│                               ▼                             │
-│                        ┌──────────────┐                     │
-│                        │  Crop Face   │                     │
-│                        │  + Preproc   │                     │
-│                        └──────┬───────┘                     │
-│                               │                             │
-│                               ▼                             │
-│                        ┌──────────────┐                     │
-│                        │  DeepFace    │                     │
-│                        │  Embedding   │                     │
-│                        │  (512-dim)   │                     │
-│                        └──────┬───────┘                     │
-│                               │                             │
-│                               ▼                             │
-│                        ┌──────────────┐                     │
-│                        │   Compare    │                     │
-│                        │  w/ Database │                     │
-│                        │  Embeddings  │                     │
-│                        └──────┬───────┘                     │
-│                               │                             │
-│                               ▼                             │
-│                        ┌──────────────┐                     │
-│                        │  Voting      │                     │
-│                        │  System      │                     │
-│                        │  (2/2 votes) │                     │
-│                        └──────┬───────┘                     │
-│                               │                             │
-│                               ▼                             │
-│                        ┌──────────────┐                     │
-│                        │  Log to DB   │                     │
-│                        │ (5s cooldown)│                     │
-│                        └──────────────┘                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-
-File-by-File Explanation
-1. db.py — Database Layer
-
-Defines the database schema and connection (SQLAlchemy ORM).
-
-User Table
-
-user_id (primary key)
-
-name (unique)
-
-face_embedding (JSON string of 512 numbers)
-
-Attendance Table
-
-record_id (primary key)
-
-user_id (foreign key)
-
-date (YYYY-MM-DD)
-
-checkin1_time, checkin2_time, checkin3_time, checkin4_time
-
-quarter_id (for reporting)
-
-Includes session management utilities for DB operations.
-
-2. attendance_logic.py — Business Rules
-
-Manages the 4 daily check-in windows:
+Windows (default):
 
 Morning Start: 07:00–09:00
 
@@ -133,216 +75,112 @@ Lunch In: 13:00–14:30
 
 Evening End: 17:00–19:30
 
-Functions
+Functions:
 
-gate_for_now() → returns which gate is currently open (1–4)
+gate_for_now() → returns which gate (1–4) is open
 
 write_gate_timestamp() → writes time to correct column
 
-compute_lateness_minutes() → calculates lateness
+compute_lateness_minutes() → lateness calculation
 
-3. recognition.py — Face Recognition Engine
+recognition.py — Face Recognition Engine
 
-The core ML module.
+Core ML utilities.
 
-class FaceRecognitionEngine:
-    # Loads DeepFace model (Facenet/Facenet512)
-    # Converts face images → 512-dim vectors
-    # Compares vectors via cosine distance
-    # Returns match results with confidence scores
+Loads DeepFace model (Facenet / Facenet512)
 
+Converts face → embedding vector
 
-Key functions
+Compares via cosine distance
 
-embed_face() → convert face image to embedding vector
+Key methods:
 
-identify() → compare query face against known database
+embed_face(image)        # -> np.ndarray vector
+identify(face, known)    # -> matches with distance/confidence
+cosine_distances(A, B)   # -> 1 - dot(A, B)
 
-cosine_distances() → similarity via 1 - dot_product
+seed_users.py — Initial Enrollment
 
-4. seed_users.py — Initial Enrollment
+Batch-enroll from seed_images/:
 
-Batch-enroll users from photos:
+Detect face(s) → compute embedding → store name + vector in DB.
 
-Reads images from seed_images/
-
-Detects face using Haar cascades + fallbacks
-
-Generates embeddings via DeepFace
-
-Stores in database with person’s name
-
-Usage
+Usage:
 
 python seed_users.py
 
-5. enroll_webcam.py — Live Enrollment
+enroll_webcam.py — Live Enrollment
 
-Interactive webcam enrollment:
+Interactive capture via webcam:
 
-Opens camera feed
+Press SPACE to take multiple samples
 
-Press SPACE to capture multiple samples
+Average embeddings for robustness
 
-Averages embeddings for robustness
+Save to DB
 
-Saves to database
-
-Usage
+Usage:
 
 python enroll_webcam.py --name "John Doe" --samples 5
 
-6. live_engine.py — Real-Time Engine
-
-The real-time recognition engine that runs continuously.
-
-Detection & Recognition Flow
-┌─────────────────────────────────────────────────────────────┐
-│               LIVE_ENGINE.PY PROCESS FLOW                   │
-└─────────────────────────────────────────────────────────────┘
-
-1) CAPTURE FRAME
-2) FACE DETECTION (every 2nd frame for speed)
-   - Try MediaPipe (fast, accurate)
-   - Fallback to Haar Cascades
-3) FIND LARGEST FACE
-4) VALIDATE SIZE (≥ 80x80 px)
-5) CROP WITH 30% MARGIN
-6) PREPROCESSING
-   - BGR → RGB
-   - CLAHE (contrast normalization)
-   - Standardize lighting
-7) EMBEDDING GENERATION (skip detector, already cropped)
-   - DeepFace.represent()
-   - Model: Facenet (128-dim) or Facenet512 (512-dim)
-   - Output: normalized vector
-8) COMPARISON WITH DATABASE
-   - Load known embeddings
-   - Cosine distance = 1 − dot(query, known)
-9) THRESHOLDING & CONFIDENCE
-   - Distance ≤ 0.50
-   - Confidence ≥ 0.70
-   - Quality ≥ 25.0
-10) VOTING SYSTEM
-   - Window: 2 consecutive frames
-   - Required: 2 matching votes
-11) DECISION
-   - MATCHED → Check cooldown (5s)
-   - UNKNOWN → Red box + alert
-   - NO MATCH → Keep scanning
-12) DATABASE LOGGING
-   - Determine open gate (1–4)
-   - Write timestamp to correct column
-   - Console log; clear votes to avoid duplicates
-
-
-How Unknown Detection Works
-
-if distance > DIST_THRESHOLD:
-    # Person not in database
-    voted_name = "UNKNOWN"
-    status = "REJECTED - Not in database"
-    box_color = RED
-
-elif matched and quality >= 25.0 and confidence >= 0.70:
-    # Valid match
-    voted_name = person.name
-    status = "ACCEPTED - Check-in recorded"
-    box_color = GREEN
-
-else:
-    # Still analyzing (low quality/confidence)
-    status = "Hold still... Analyzing"
-    box_color = YELLOW
-
-
-Example Console Output
-
-======================================================================
-PERSON DETECTED: Liyan
-Check-in Time: 2025-10-05 08:15:32
-Gate: Check-in 1
-Match Accuracy: 87.3%
-Distance Score: 0.253
-Status: ACCEPTED - Check-in recorded
-======================================================================
-
-======================================================================
-UNKNOWN PERSON DETECTED
-Time: 2025-10-05 08:16:45
-Gate: 1
-Confidence: 45.2%
-Distance: 0.658
-Status: REJECTED - Not in database
-======================================================================
-
+live_engine.py — Real-Time Engine
+flowchart TD
+    A[Capture Frame] --> B{Face Detection<br/>(every Nth frame)}
+    B -->|MediaPipe ok| C[Largest Face]
+    B -->|Fallback Haar| C
+    C --> D[Validate size ≥ 80x80]
+    D --> E[Crop + 30% margin]
+    E --> F[Preprocess<br/>BGR→RGB, CLAHE, normalize]
+    F --> G[Embedding (Facenet/512)]
+    G --> H[Compare vs Known (cosine)]
+    H --> I{Thresholds<br/>dist ≤ 0.50<br/>conf ≥ 0.70<br/>quality ≥ 25}
+    I -->|pass| J[Voting 2/2]
+    I -->|fail| K[Analyzing / Unknown]
+    J --> L{Cooldown ≥ 5s?}
+    L -->|yes| M[Log to DB (gate 1–4)]
+    L -->|no| N[Wait & show cooldown]
 Key Thresholds
 
-DIST_THRESHOLD = 0.50
-Cosine distance between embeddings (0.0=identical, 2.0=opposite).
+DIST_THRESHOLD = 0.50 — cosine distance (lower = stricter)
 
-Lower → stricter (fewer false positives, more false negatives)
+MIN_CONFIDENCE = 0.70 — derived from distance (≈ 1 - dist/2)
 
-Higher → more lenient (risk of wrong person)
+MIN_FACE_QUALITY = 25.0 — blur/brightness quality gate
 
-MIN_CONFIDENCE = 0.70
-Derived as confidence = 1 - (distance / 2).
-
-70% = reasonable certainty requirement
-
-MIN_FACE_QUALITY = 25.0
-Quality from:
-
-Blur detection (Laplacian variance)
-
-Brightness (distance from ideal gray level ≈128)
-
-Rejects blurry or dark images
-
-Voting Parameters
-
-VOTE_WINDOW = 2 → requires 2 consecutive frames
-
-VOTE_MIN_SAME = 2 → both must agree on same person
-
-COOLDOWN_SEC = 5 → prevents duplicate logs
+Voting: VOTE_WINDOW = 2, VOTE_MIN_SAME = 2, COOLDOWN_SEC = 5
 
 Configuration Variables
 Speed vs Accuracy
 # FASTER (less accurate)
-DETECTION_SCALE = 0.5        # Downscale before detection
-PROCESS_EVERY_N_FRAMES = 2   # Skip every other frame
-VOTE_WINDOW = 2              # Quick decision
+DETECTION_SCALE = 0.5
+PROCESS_EVERY_N_FRAMES = 2
+VOTE_WINDOW = 2
 
 # MORE ACCURATE (slower)
-DETECTION_SCALE = 1.0        # Full-resolution detection
-PROCESS_EVERY_N_FRAMES = 1   # Process every frame
-VOTE_WINDOW = 5              # Longer voting period
+DETECTION_SCALE = 1.0
+PROCESS_EVERY_N_FRAMES = 1
+VOTE_WINDOW = 5
 
 Model Selection
-MODEL_NAME = "Facenet"      # Fast, 128-dim
+MODEL_NAME = "Facenet"     # 128-dim, faster
 # or
-MODEL_NAME = "Facenet512"   # Slower, 512-dim (more accurate)
+MODEL_NAME = "Facenet512"  # 512-dim, more accurate
 
-Flask Dashboard (flask_dashboard.py)
+Flask Dashboard
 
-Features:
+Live camera frame preview (saved JPEG)
 
-Real-time camera feed display
+Live status via JSON
 
-Live status updates (JSON polling)
+User management (add / edit / delete)
 
-User management (add/edit/delete)
+Attendance reports, exports
 
-Attendance reports with photos
+Email notifications
 
-Excel export with embedded images
+Charts & analytics
 
-Email notifications for late/absent
-
-Charts and analytics
-
-Admin authentication
+Admin auth
 
 Main Entry Point (CLI)
 # Start live recognition
@@ -376,48 +214,37 @@ python main.py dashboard
 
 Security & Privacy
 
-Face embeddings are mathematical representations, not photos.
+Face embeddings are vectors, not photos; can’t be reversed.
 
-Embeddings cannot be reversed to reconstruct faces.
+Admin password & rate limiting on sensitive endpoints.
 
-Admin password protection (configurable via .env).
+Keep secrets in .env (never hardcode). Use:
 
-Rate-limiting on sensitive endpoints.
+from dotenv import load_dotenv; load_dotenv()
 
-HTTPS recommended for production.
+
+Use HTTPS in production.
 
 Troubleshooting
 
-“No face detected”
+No face detected
 
-Ensure adequate lighting
+Improve lighting; face camera directly; move closer (≥ 80×80 px).
 
-Face the camera directly
+Unknown person
 
-Move closer (face must be ≥ 80×80 px)
-
-“Unknown person”
-
-Re-enroll with better-quality photos
-
-Lower DIST_THRESHOLD if too strict
-
-Check that an embedding exists in the database
+Re-enroll with better photos; adjust DIST_THRESHOLD; verify DB entry.
 
 Slow performance
 
-Reduce DETECTION_SCALE to 0.4
-
-Increase PROCESS_EVERY_N_FRAMES to 3
-
-Use Facenet instead of Facenet512
+Lower DETECTION_SCALE (e.g., 0.4); increase PROCESS_EVERY_N_FRAMES (e.g., 3); use Facenet instead of Facenet512.
 
 Technical Details
 
-Face Embedding: 512-dimensional vector (DeepFace Facenet512) capturing unique facial features.
+Embedding: 128/512-dimensional DeepFace (Facenet/Facenet512).
 
-Cosine Distance: Measures angle between vectors (0.0 perfect match, 2.0 opposite). Threshold used: 0.50 (≈ 60° tolerance).
+Cosine Distance: 0.0 identical → 2.0 opposite; we use 0.50.
 
-Voting System: Prevents single-frame errors by requiring consistent detections across multiple frames before logging.
+Voting: Multiple consecutive confirmations to avoid single-frame errors.
 
-With proper enrollment and lighting, the system targets ~90% accuracy.
+With good enrollment & lighting, targets ~90% accuracy.
