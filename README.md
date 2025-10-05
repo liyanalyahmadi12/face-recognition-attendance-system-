@@ -36,15 +36,7 @@ This system detects faces, creates embeddings, compares them to enrolled users, 
 
 ## Architecture
 
-
-
-flowchart LR
-    CAM[Camera Input] --> DET{Face Detect\n(MediaPipe or Haar)}
-    DET --> CROP[Crop Face\n+ Preprocess]
-    CROP --> EMB[DeepFace Embedding\n(128/512-dim)]
-    EMB --> CMP[Compare with DB Embeddings\n(cosine distance)]
-    CMP --> VOTE[Voting System\n(require 2/2)]
-    VOTE --> LOG[Log to DB\n(5s cooldown)]
+<img width="1536" height="1024" alt="hi" src="https://github.com/user-attachments/assets/4e283591-2b33-4723-9d8b-de052db48cac" />
 
 
 db.py — Database Layer
@@ -125,21 +117,6 @@ Usage:
 python enroll_webcam.py --name "John Doe" --samples 5
 
 live_engine.py — Real-Time Engine
-flowchart TD
-    A[Capture Frame] --> B{Face Detection\n(every Nth frame)}
-    B -->|MediaPipe ok| C[Largest Face]
-    B -->|Fallback Haar| C
-    C --> D[Validate size ≥ 80x80]
-    D --> E[Crop + 30% margin]
-    E --> F[Preprocess\nBGR→RGB, CLAHE, normalize]
-    F --> G[Embedding\n(Facenet/512)]
-    G --> H[Compare vs Known\n(cosine)]
-    H --> I{Thresholds\n(dist ≤ 0.50\nconf ≥ 0.70\nquality ≥ 25)}
-    I -->|pass| J[Voting 2/2]
-    I -->|fail| K[Analyzing / Unknown]
-    J --> L{Cooldown ≥ 5s?}
-    L -->|yes| M[Log to DB\n(gate 1–4)]
-    L -->|no| N[Wait & show cooldown]
 
 
 Key Thresholds
