@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-white">User Management</h1>
+            <p class="text-gray-400 mt-1">Manage enrolled users</p>
+        </div>
+        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white transition-colors">
+            + Add User
+        </button>
+    </div>
+
+    <!-- Users Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for user in users %}
+        <div class="glass rounded-lg p-6 card-hover">
+            <div class="flex items-start space-x-4">
+                <div class="h-16 w-16 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                    <span class="text-2xl font-bold text-blue-400">{{ user.name[0] }}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-lg font-semibold text-white truncate">{{ user.name }}</h3>
+                    {% if user.email %}
+                    <p class="text-sm text-gray-400 truncate">{{ user.email }}</p>
+                    {% endif %}
+                    {% if user.external_id %}
+                    <p class="text-xs text-gray-500 mt-1">ID: {{ user.external_id }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4 flex space-x-2">
+                <form method="POST" action="{{ url_for('users_delete', user_id=user.user_id) }}" onsubmit="return confirm('Delete {{ user.name }}?')" class="flex-1">
+                    <button type="submit" class="w-full bg-red-900/30 hover:bg-red-900/50 text-red-400 px-3 py-2 rounded text-sm transition-colors">
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not users %}
+    <div class="glass rounded-lg p-12 text-center">
+        <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <p class="text-gray-400">No users enrolled yet</p>
+        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="mt-4 text-blue-400 hover:text-blue-300">
+            Add your first user
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add User Modal -->
+<div id="addUserModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="glass rounded-lg max-w-md w-full p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">Add New User</h2>
+            <button onclick="document.getElementById('addUserModal').classList.add('hidden')" class="text-gray-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <form method="POST" action="{{ url_for('users_add') }}" enctype="multipart/form-data" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Name *</label>
+                <input type="text" name="name" required class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <input type="email" name="email" class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Employee ID</label>
+                <input type="text" name="external_id" class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Photo *</label>
+                <input type="file" name="photo" accept="image/*" required class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Face the camera directly, good lighting, neutral expression</p>
+            </div>
+            
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                Enroll User
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

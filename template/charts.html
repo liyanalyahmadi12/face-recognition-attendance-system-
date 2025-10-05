@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Analytics Charts</h1>
+            <p class="text-gray-400 mt-1">Visual insights into attendance patterns</p>
+        </div>
+        <div class="text-right">
+            <p class="text-sm text-gray-400">Data as of</p>
+            <p class="text-lg font-semibold text-white">{{ today.strftime('%B %d, %Y') }}</p>
+        </div>
+    </div>
+
+    <!-- Top Row: Pie Chart + Bar Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Pie Chart - Today's Status -->
+        <div class="glass rounded-lg p-6">
+            <h2 class="text-xl font-bold text-white mb-4">Today's Attendance Distribution</h2>
+            <div class="flex items-center justify-center" style="height: 300px;">
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="mt-6 grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <p class="text-2xl font-bold text-green-400">{{ pie_data.values[0] }}</p>
+                    <p class="text-sm text-gray-400">On Time</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-yellow-400">{{ pie_data.values[1] }}</p>
+                    <p class="text-sm text-gray-400">Late</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-red-400">{{ pie_data.values[2] }}</p>
+                    <p class="text-sm text-gray-400">Absent</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bar Chart - Weekly Trend -->
+        <div class="glass rounded-lg p-6">
+            <h2 class="text-xl font-bold text-white mb-4">7-Day Attendance Trend</h2>
+            <div style="height: 300px;">
+                <canvas id="barChart"></canvas>
+            </div>
+            <div class="mt-4 flex justify-between text-sm text-gray-400">
+                <div class="flex items-center">
+                    <div class="h-3 w-3 bg-blue-500 rounded mr-2"></div>
+                    <span>Present</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="h-3 w-3 bg-orange-500 rounded mr-2"></div>
+                    <span>Late</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heat Map - 30 Day View -->
+    <div class="glass rounded-lg p-6">
+        <h2 class="text-xl font-bold text-white mb-4">30-Day Attendance Heat Map</h2>
+        <p class="text-sm text-gray-400 mb-6">Attendance rate by day - darker colors indicate higher attendance</p>
+        
+        <div class="grid grid-cols-7 gap-2">
+            <!-- Weekday Headers -->
+            {% for day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] %}
+            <div class="text-center text-xs font-medium text-gray-400">{{ day }}</div>
+            {% endfor %}
+            
+            <!-- Heatmap Cells -->
+            {% for item in heatmap_data %}
+            {% if loop.index0 == 0 %}
+                <!-- Add empty cells to align with correct weekday -->
+                {% set first_day_offset = item.weekday %}
+                {% if first_day_offset == 'Sun' %}{% set offset = 0 %}
+                {% elif first_day_offset == 'Mon' %}{% set offset = 1 %}
+                {% elif first_day_offset == 'Tue' %}{% set offset = 2 %}
+                {% elif first_day_offset == 'Wed' %}{% set offset = 3 %}
+                {% elif first_day_offset == 'Thu' %}{% set offset = 4 %}
+                {% elif first_day_offset == 'Fri' %}{% set offset = 5 %}
+                {% else %}{% set offset = 6 %}{% endif %}
+                
+                {% for i in range(offset) %}
+                <div class="aspect-square"></div>
+                {% endfor %}
+            {% endif %}
+            
+            {% if item.rate >= 80 %}
+                {% set color_class = 'bg-green-600' %}
+            {% elif item.rate >= 60 %}
+                {% set color_class = 'bg-green-700' %}
+            {% elif item.rate >= 40 %}
+                {% set color_class = 'bg-yellow-700' %}
+            {% elif item.rate >= 20 %}
+                {% set color_class = 'bg-orange-700' %}
+            {% elif item.rate > 0 %}
+                {% set color_class = 'bg-red-700' %}
+            {% else %}
+                {% set color_class = 'bg-gray-800' %}
+            {% endif %}
+            
+            <div class="aspect-square {{ color_class }} rounded flex items-center justify-center text-white text-xs font-medium hover:ring-2 hover:ring-blue-500 cursor-pointer transition-all"
+                 title="{{ item.date }}: {{ item.rate }}% attendance">
+                {{ item.day }}
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Legend -->
+        <div class="mt-6 flex items-center justify-center gap-4 text-xs text-gray-400">
+            <span>Less</span>
+            <div class="flex gap-1">
+                <div class="h-4 w-4 bg-gray-800 rounded"></div>
+                <div class="h-4 w-4 bg-red-700 rounded"></div>
+                <div class="h-4 w-4 bg-orange-700 rounded"></div>
+                <div class="h-4 w-4 bg-yellow-700 rounded"></div>
+                <div class="h-4 w-4 bg-green-700 rounded"></div>
+                <div class="h-4 w-4 bg-green-600 rounded"></div>
+            </div>
+            <span>More</span>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="glass rounded-lg p-4 text-center">
+            <p class="text-gray-400 text-sm">Average Daily Attendance</p>
+            <p class="text-3xl font-bold text-blue-400 mt-2">
+                {{ ((bar_data.present[0] + bar_data.present[1] + bar_data.present[2] + bar_data.present[3] + bar_data.present[4] + bar_data.present[5] + bar_data.present[6]) / 7)|round(1) }}
+            </p>
+        </div>
+        <div class="glass rounded-lg p-4 text-center">
+            <p class="text-gray-400 text-sm">Total Late This Week</p>
+            <p class="text-3xl font-bold text-yellow-400 mt-2">
+                {{ bar_data.late[0] + bar_data.late[1] + bar_data.late[2] + bar_data.late[3] + bar_data.late[4] + bar_data.late[5] + bar_data.late[6] }}
+            </p>
+        </div>
+        <div class="glass rounded-lg p-4 text-center">
+            <p class="text-gray-400 text-sm">Peak Attendance Day</p>
+            <p class="text-3xl font-bold text-green-400 mt-2">
+                {% set max_val = bar_data.present[0] %}
+                {% set max_idx = 0 %}
+                {% for i in range(1, 7) %}
+                    {% if bar_data.present[i] > max_val %}
+                        {% set max_val = bar_data.present[i] %}
+                        {% set max_idx = i %}
+                    {% endif %}
+                {% endfor %}
+                {{ bar_data.labels[max_idx] }}
+            </p>
+        </div>
+        <div class="glass rounded-lg p-4 text-center">
+            <p class="text-gray-400 text-sm">Tracking Period</p>
+            <p class="text-3xl font-bold text-purple-400 mt-2">{{ heatmap_data|length }}</p>
+            <p class="text-xs text-gray-500 mt-1">days</p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Pie Chart
+const pieCtx = document.getElementById('pieChart').getContext('2d');
+new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ pie_data.labels|tojson }},
+        datasets: [{
+            data: [{{ pie_data.values[0] }}, {{ pie_data.values[1] }}, {{ pie_data.values[2] }}],
+            backgroundColor: {{ pie_data.colors|tojson }},
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { color: '#fff', padding: 15, font: { size: 12 } }
+            }
+        }
+    }
+});
+
+// Bar Chart
+const barCtx = document.getElementById('barChart').getContext('2d');
+new Chart(barCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ bar_data.labels|tojson }},
+        datasets: [
+            {
+                label: 'Present',
+                data: {{ bar_data.present|tojson }},
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            },
+            {
+                label: 'Late',
+                data: {{ bar_data.late|tojson }},
+                backgroundColor: '#f97316',
+                borderRadius: 4
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: { 
+                stacked: false,
+                grid: { color: '#374151' },
+                ticks: { color: '#9ca3af' }
+            },
+            y: { 
+                stacked: false,
+                beginAtZero: true,
+                grid: { color: '#374151' },
+                ticks: { color: '#9ca3af', stepSize: 1 }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}
