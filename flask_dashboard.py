@@ -877,7 +877,96 @@ def charts_page():
         heatmap_data=heatmap_data,
         today=end_date
     )
+#===========================================================================
+#chart API
+#===========================================================================
 
+# Add this new route in flask_dashboard.py after the charts_page() function
+
+@app.get("/api/charts_data")
+@require_auth
+def api_charts_data():
+    """API endpoint that returns fresh chart data as JSON"""
+    sess = SessionLocal()
+    try:
+        end_date = dt.date.today()
+        start_date = end_date - dt.timedelta(days=30)
+        
+        records = sess.query(Attendance, User).join(
+            User, Attendance.user_id == User.user_id
+        ).filter(
+            Attendance.date >= start_date.isoformat(),
+            Attendance.date <= end_date.isoformat()
+        ).all()
+        
+        total_users = sess.query(User).count()
+        today = today_str()
+        today_records = sess.query(Attendance).filter(Attendance.date == today).all()
+        
+        present_count = len([r for r in today_records if r.checkin1_time])
+        late_count = len([r for r in today_records if r.checkin1_time and is_late(1, r.checkin1_time)])
+        on_time_count = present_count - late_count
+        absent_count = total_users - present_count
+        
+        pie_data = {
+            "labels": ["On Time", "Late", "Absent"],
+            "values": [int(on_time_count), int(late_count), int(absent_count)],
+            "colors": ["#10b981", "#f59e0b", "#ef4444"]
+        }
+        
+        bar_labels = []
+        bar_present = []
+        bar_late = []
+        
+        for i in range(7):
+            day = end_date - dt.timedelta(days=6-i)
+            bar_labels.append(day.strftime("%m/%d"))
+            
+            day_records = [a for a, u in records if a.date == day.isoformat()]
+            present = len([r for r in day_records if r.checkin1_time])
+            late = len([r for r in day_records if r.checkin1_time and is_late(1, r.checkin1_time)])
+            
+            bar_present.append(int(present))
+            bar_late.append(int(late))
+        
+        bar_data = {
+            "labels": bar_labels,
+            "present": bar_present,
+            "late": bar_late
+        }
+        
+        heatmap_data = []
+        for i in range(30):
+            day = end_date - dt.timedelta(days=29-i)
+            day_records = [a for a, u in records if a.date == day.isoformat()]
+            
+            if day_records:
+                total_checkins = len([1 for a in day_records if a.checkin1_time])
+                rate = (total_checkins / total_users * 100) if total_users > 0 else 0
+            else:
+                rate = 0
+            
+            heatmap_data.append({
+                "date": day.isoformat(),
+                "day": day.day,
+                "month": day.strftime("%b"),
+                "rate": round(rate, 1),
+                "weekday": day.strftime("%a")
+            })
+        
+        return jsonify({
+            "ok": True,
+            "pie_data": pie_data,
+            "bar_data": bar_data,
+            "heatmap_data": heatmap_data,
+            "timestamp": dt.datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching chart data: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        sess.close()
 # ============================================================================
 # EMPLOYEES
 # ============================================================================

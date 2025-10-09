@@ -160,72 +160,195 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// Pie Chart
-const pieCtx = document.getElementById('pieChart').getContext('2d');
-new Chart(pieCtx, {
-    type: 'doughnut',
-    data: {
-        labels: {{ pie_data.labels|tojson }},
-        datasets: [{
-            data: [{{ pie_data.values[0] }}, {{ pie_data.values[1] }}, {{ pie_data.values[2] }}],
-            backgroundColor: {{ pie_data.colors|tojson }},
-            borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { color: '#fff', padding: 15, font: { size: 12 } }
+// Store chart instances globally
+let pieChart, barChart;
+
+// Initialize charts
+function initCharts(data) {
+    // Pie Chart
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    if (pieChart) pieChart.destroy();
+    
+    pieChart = new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+            labels: data.pie_data.labels,
+            datasets: [{
+                data: data.pie_data.values,
+                backgroundColor: data.pie_data.colors,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#fff', padding: 15, font: { size: 12 } }
+                }
             }
+        }
+    });
+
+    // Bar Chart
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    if (barChart) barChart.destroy();
+    
+    barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: data.bar_data.labels,
+            datasets: [
+                {
+                    label: 'Present',
+                    data: data.bar_data.present,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Late',
+                    data: data.bar_data.late,
+                    backgroundColor: '#f97316',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { 
+                    stacked: false,
+                    grid: { color: '#374151' },
+                    ticks: { color: '#9ca3af' }
+                },
+                y: { 
+                    stacked: false,
+                    beginAtZero: true,
+                    grid: { color: '#374151' },
+                    ticks: { color: '#9ca3af', stepSize: 1 }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+    
+    updateStats(data);
+}
+
+function updateStats(data) {
+    const avgAttendance = (data.bar_data.present.reduce((a, b) => a + b, 0) / 7).toFixed(1);
+    const totalLate = data.bar_data.late.reduce((a, b) => a + b, 0);
+    
+    document.querySelectorAll('.text-3xl.font-bold')[0].textContent = avgAttendance;
+    document.querySelectorAll('.text-3xl.font-bold')[1].textContent = totalLate;
+    
+    const pieStats = document.querySelectorAll('.text-2xl.font-bold');
+    if (pieStats.length >= 3) {
+        pieStats[0].textContent = data.pie_data.values[0];
+        pieStats[1].textContent = data.pie_data.values[1];
+        pieStats[2].textContent = data.pie_data.values[2];
+    }
+}
+
+async function refreshData() {
+    try {
+        const response = await fetch('/api/charts_data');
+        const data = await response.json();
+        
+        if (data.ok) {
+            console.log('Charts updated:', new Date().toLocaleTimeString());
+            initCharts(data);
+            updateRefreshTime();
+        }
+    } catch (error) {
+        console.error('Error refreshing charts:', error);
+    }
+}
+
+function updateRefreshTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    
+    let refreshTime = document.getElementById('refresh-time');
+    if (!refreshTime) {
+        refreshTime = document.createElement('p');
+        refreshTime.id = 'refresh-time';
+        refreshTime.className = 'text-xs text-gray-500 mt-1';
+        
+        const dateDisplay = document.querySelector('.text-right p:last-child');
+        if (dateDisplay) {
+            dateDisplay.parentNode.appendChild(refreshTime);
         }
     }
-});
+    
+    refreshTime.textContent = `Last updated: ${timeStr}`;
+}
 
-// Bar Chart
-const barCtx = document.getElementById('barChart').getContext('2d');
-new Chart(barCtx, {
-    type: 'bar',
-    data: {
-        labels: {{ bar_data.labels|tojson }},
-        datasets: [
-            {
-                label: 'Present',
-                data: {{ bar_data.present|tojson }},
-                backgroundColor: '#3b82f6',
-                borderRadius: 4
-            },
-            {
-                label: 'Late',
-                data: {{ bar_data.late|tojson }},
-                backgroundColor: '#f97316',
-                borderRadius: 4
+document.addEventListener('DOMContentLoaded', function() {
+    const initialData = {
+        pie_data: {{ pie_data|tojson }},
+        bar_data: {{ bar_data|tojson }},
+        heatmap_data: {{ heatmap_data|tojson }}
+    };
+    
+    initCharts(initialData);
+    updateRefreshTime();
+    
+    const header = document.querySelector('.flex.justify-between.items-center');
+    if (header) {
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'flex items-center space-x-2';
+        
+        const refreshBtn = document.createElement('button');
+        refreshBtn.innerHTML = `
+            <svg class="w-5 h-5 mr-2 inline animate-spin hidden" id="refresh-spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <svg class="w-5 h-5 mr-2 inline" id="refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh
+        `;
+        refreshBtn.className = 'btn-primary px-4 py-2 rounded-lg text-white font-medium text-sm';
+        refreshBtn.onclick = async function() {
+            document.getElementById('refresh-spinner').classList.remove('hidden');
+            document.getElementById('refresh-icon').classList.add('hidden');
+            await refreshData();
+            document.getElementById('refresh-spinner').classList.add('hidden');
+            document.getElementById('refresh-icon').classList.remove('hidden');
+        };
+        
+        const toggleBtn = document.createElement('button');
+        toggleBtn.innerHTML = `<span id="toggle-text">Auto: ON</span>`;
+        toggleBtn.className = 'glass px-4 py-2 rounded-lg text-gray-300 hover:text-white text-sm';
+        
+        let autoRefreshEnabled = true;
+        let refreshInterval;
+        
+        toggleBtn.onclick = function() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            document.getElementById('toggle-text').textContent = autoRefreshEnabled ? 'Auto: ON' : 'Auto: OFF';
+            
+            if (autoRefreshEnabled) {
+                refreshInterval = setInterval(refreshData, 30000);
+                toggleBtn.classList.remove('opacity-50');
+            } else {
+                clearInterval(refreshInterval);
+                toggleBtn.classList.add('opacity-50');
             }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            x: { 
-                stacked: false,
-                grid: { color: '#374151' },
-                ticks: { color: '#9ca3af' }
-            },
-            y: { 
-                stacked: false,
-                beginAtZero: true,
-                grid: { color: '#374151' },
-                ticks: { color: '#9ca3af', stepSize: 1 }
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            }
-        }
+        };
+        
+        btnContainer.appendChild(refreshBtn);
+        btnContainer.appendChild(toggleBtn);
+        
+        const rightDiv = header.querySelector('.text-right');
+        rightDiv.parentNode.insertBefore(btnContainer, rightDiv);
+        
+        refreshInterval = setInterval(refreshData, 30000);
     }
 });
 </script>

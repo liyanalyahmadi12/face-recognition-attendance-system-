@@ -1,4 +1,4 @@
-# live_engine.py — IMPROVED: Faster detection + detailed console logs + unknown detection
+# live_engine.py — FIXED: Proper gate detection + database writes + better logging
 import os
 import cv2
 import json
@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from db import init_db, SessionLocal, User, Attendance, current_quarter_id
-from attendance_logic import gate_for_now, write_gate_timestamp
+from attendance_logic import gate_for_now, write_gate_timestamp, GATES
 from recognition import FaceRecognitionEngine
 
 # ────────────────────────────────────────────────
@@ -41,8 +41,8 @@ MIN_FACE_SIZE    = int(os.getenv("MIN_FACE_SIZE", "40"))
 PROCESS_EVERY_N_FRAMES = int(os.getenv("PROCESS_EVERY_N_FRAMES", "2"))
 
 # Voting - REDUCED for faster response
-VOTE_WINDOW      = int(os.getenv("VOTE_WINDOW", "2"))  # Was 3, now 2
-VOTE_MIN_SAME    = int(os.getenv("VOTE_MIN_SAME", "2"))  # Just 2 votes needed
+VOTE_WINDOW      = int(os.getenv("VOTE_WINDOW", "2"))
+VOTE_MIN_SAME    = int(os.getenv("VOTE_MIN_SAME", "2"))
 COOLDOWN_SEC     = int(os.getenv("COOLDOWN_SEC", "5"))
 
 # Quality check
@@ -50,6 +50,9 @@ MIN_FACE_QUALITY = float(os.getenv("MIN_FACE_QUALITY", "25.0"))
 
 # Business rule
 ALLOW_GATE_OVERWRITE = bool(int(os.getenv("ALLOW_GATE_OVERWRITE", "1")))
+
+# Test mode - bypass gate checking
+TEST_MODE = os.getenv("TEST_MODE", "0") == "1"
 
 SHOW_DISTANCE    = os.getenv("SHOW_DISTANCE", "1") == "1"
 SHOW_BOXES       = os.getenv("SHOW_BOXES", "1") == "1"
@@ -265,7 +268,17 @@ def main():
 
     print(f"[engine] model={MODEL_NAME} dist_thr={DIST_THRESHOLD:.3f} conf_thr={MIN_CONFIDENCE:.2f}")
     print(f"[engine] voting={VOTE_MIN_SAME}/{VOTE_WINDOW} (FASTER)")
-    print("q=quit, r=reload users, i=toggle instructions, s=show stats")
+    
+    if TEST_MODE:
+        print("[TEST MODE] Gate checking DISABLED - all check-ins will use Gate 1")
+    
+    print("\nControls:")
+    print("  q = quit")
+    print("  r = reload users from database")
+    print("  i = toggle instructions overlay")
+    print("  s = show statistics")
+    print("  f = force check-in (bypass gate timing)")
+    print("  g = show current gate status\n")
 
     try:
         while True:
@@ -283,18 +296,31 @@ def main():
                 t0 = now_sec
                 n = 0
 
-            gate_id = gate_for_now()
+            # Gate detection with test mode override
+            if TEST_MODE:
+                gate_id = 1  # Always use gate 1 in test mode
+            else:
+                gate_id = gate_for_now()
 
             # Gate timing display (TOP LEFT)
             if gate_id:
-                from attendance_logic import GATES
                 gate_info = GATES.get(gate_id, {"label": "Unknown", "window": ("??:??", "??:??")})
                 gate_text = f"Gate {gate_id}: {gate_info['label']}"
                 gate_time = f"{gate_info['window'][0]} - {gate_info['window'][1]}"
                 
+                if TEST_MODE:
+                    gate_text += " [TEST MODE]"
+                
                 cv2.putText(frame, gate_text, (10, 30), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                 cv2.putText(frame, gate_time, (10, 55), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            else:
+                # Show when next gate opens
+                now = dt.datetime.now().time()
+                cv2.putText(frame, "NO GATE OPEN", (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(frame, f"Current time: {now.strftime('%H:%M:%S')}", (10, 55), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
             # SPEED: Process every Nth frame
@@ -320,7 +346,6 @@ def main():
                     votes.append((None, None, None, None))
                     instruction = "Face too small - Move closer to camera"
                     instruction_color = (0, 165, 255)
-                    print(f"[DEBUG] Face too small: {w}x{h} - skipping")
                 else:
                     pad = int(max(w, h) * 0.30)
                     x1, y1 = max(0, x - pad), max(0, y - pad)
@@ -332,7 +357,6 @@ def main():
                         votes.append((None, None, None, None))
                         instruction = "Invalid face crop - Adjust position"
                         instruction_color = (0, 165, 255)
-                        print(f"[DEBUG] Invalid crop: {face.shape}")
                     else:
                         try:
                             matches = recog.identify(face, known_users, top_k=1, detector_backend_override="skip")
@@ -341,34 +365,25 @@ def main():
                                 last_dist = m.distance
                                 last_quality = m.quality_score
                                 
-                                # DEBUG: Print what we detected
-                                print(f"[DEBUG] Face detected - Name: {m.name if m.matched else 'Unknown'}, "
-                                      f"Distance: {m.distance:.3f}, Quality: {m.quality_score:.1f}, "
-                                      f"Confidence: {m.confidence:.2f}")
-                                
                                 # Check if it's an unknown person (distance too high)
                                 if m.distance > DIST_THRESHOLD:
                                     votes.append(("UNKNOWN", "UNKNOWN", m.distance, m.confidence))
                                     instruction = "Unknown person detected - Not in database"
                                     instruction_color = (0, 0, 255)
-                                    print(f"[DEBUG] Unknown person - distance {m.distance:.3f} > threshold {DIST_THRESHOLD}")
                                 # Check match criteria for known users
                                 elif m.matched and m.quality_score >= MIN_FACE_QUALITY and m.confidence >= MIN_CONFIDENCE:
                                     votes.append((m.user_id, m.name, m.distance, m.confidence))
                                     vote_count = len([v for v in votes if v[1] == m.name])
                                     instruction = f"Confirming {m.name}... ({vote_count}/{VOTE_MIN_SAME})"
                                     instruction_color = (0, 255, 255)
-                                    print(f"[DEBUG] Match found: {m.name} - Vote {vote_count}/{VOTE_MIN_SAME}")
                                 else:
                                     votes.append((None, None, m.distance, m.confidence))
                                     if m.quality_score < MIN_FACE_QUALITY:
                                         instruction = "Move closer or improve lighting"
                                         instruction_color = (0, 165, 255)
-                                        print(f"[DEBUG] Quality too low: {m.quality_score:.1f} < {MIN_FACE_QUALITY}")
                                     else:
                                         instruction = "Hold still... Analyzing"
                                         instruction_color = (255, 255, 255)
-                                        print(f"[DEBUG] Analyzing... conf={m.confidence:.2f}, matched={m.matched}")
                             else:
                                 votes.append((None, None, None, None))
                         except Exception as e:
@@ -439,6 +454,7 @@ def main():
                     # Print to console
                     print_detection_log("UNKNOWN", gate_id, voted_conf or 0.0, voted_dist or 1.0, is_unknown=True)
                     votes.clear()  # Clear votes after logging unknown
+                    stats["unknown_rejections"] += 1
                     
                 elif voted_uid is not None:
                     key = (voted_uid, gate_id)
@@ -446,9 +462,12 @@ def main():
                     if elapsed >= COOLDOWN_SEC:
                         ts = dt.datetime.now()
                         date_iso = ts.date().isoformat()
+                        
+                        # Find or create attendance record
                         rec = (sess.query(Attendance)
                                .filter_by(user_id=voted_uid, date=date_iso)
                                .one_or_none())
+                        
                         if not rec:
                             rec = Attendance(
                                 user_id=voted_uid,
@@ -457,27 +476,44 @@ def main():
                             )
                             sess.add(rec)
                             sess.flush()
-                        if write_gate_timestamp(rec, gate_id, ts.strftime("%H:%M:%S"), overwrite=True):
-                            sess.commit()
-                            last_logged[key] = time.time()
-                            msg = f"✓ RECOGNIZED: {voted_name} → Gate {gate_id}"
-                            color = (0, 255, 0)
-                            instruction = f"Success! {voted_name} checked in"
-                            instruction_color = (0, 255, 0)
-                            
-                            # Print detailed log to console
-                            print_detection_log(voted_name, gate_id, voted_conf or 0.0, voted_dist or 0.0)
-                            
-                            # CRITICAL: Clear votes and reset detection to stop loop
-                            votes.clear()
-                            voted_uid = None
-                            voted_name = None
-                            last_face_box = None
+                        
+                        # Write timestamp to appropriate gate column
+                        write_success = write_gate_timestamp(rec, gate_id, ts.strftime("%H:%M:%S"), overwrite=ALLOW_GATE_OVERWRITE)
+                        
+                        if write_success:
+                            try:
+                                sess.commit()
+                                last_logged[key] = time.time()
+                                msg = f"✓ RECOGNIZED: {voted_name} → Gate {gate_id}"
+                                color = (0, 255, 0)
+                                instruction = f"Success! {voted_name} checked in"
+                                instruction_color = (0, 255, 0)
+                                
+                                # Print detailed log to console
+                                print_detection_log(voted_name, gate_id, voted_conf or 0.0, voted_dist or 0.0)
+                                
+                                # Update stats
+                                stats["successful_matches"] += 1
+                                stats["gate_logs"][gate_id] += 1
+                                
+                                # CRITICAL: Clear votes to prevent duplicate logging
+                                votes.clear()
+                                voted_uid = None
+                                voted_name = None
+                                last_face_box = None
+                                
+                            except Exception as e:
+                                sess.rollback()
+                                print(f"[ERROR] Database commit failed: {e}")
+                                msg = f"❌ ERROR: Could not save check-in for {voted_name}"
+                                color = (0, 0, 255)
+                                votes.clear()
                         else:
                             msg = f"{voted_name} → Gate {gate_id} (already logged)"
                             color = (255, 255, 0)
                             instruction = f"{voted_name} already checked in"
                             instruction_color = (255, 255, 0)
+                            votes.clear()  # Clear to stop trying
                     else:
                         remaining = max(0, COOLDOWN_SEC - int(elapsed))
                         msg = f"{voted_name} - Cooldown {remaining}s"
@@ -487,6 +523,31 @@ def main():
                 else:
                     msg = f"Gate {gate_id} OPEN - Scanning..."
                     color = (0, 255, 255)
+            else:
+                # No gate open - show helpful message
+                now = dt.datetime.now()
+                next_gate = None
+                min_wait = None
+                
+                for gid, info in GATES.items():
+                    start_h, start_m = map(int, info['window'][0].split(':'))
+                    start_time = now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+                    
+                    if start_time > now:
+                        wait = (start_time - now).total_seconds() / 60
+                        if min_wait is None or wait < min_wait:
+                            min_wait = wait
+                            next_gate = gid
+                
+                if next_gate and min_wait is not None:
+                    msg = f"Next gate opens in {int(min_wait)} min (Gate {next_gate})"
+                    instruction = f"Gate {next_gate} opens in {int(min_wait)} minutes"
+                else:
+                    msg = "NO GATE OPEN - Check schedule"
+                    instruction = "No active check-in window"
+                
+                color = (128, 128, 128)
+                instruction_color = (128, 128, 128)
 
             # Draw focus box
             if last_face_box:
@@ -518,7 +579,7 @@ def main():
             cv2.rectangle(frame, (0, 70), (frame.shape[1], 120), (0, 0, 0), -1)
             cv2.putText(frame, msg, (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
             
-            # FPS
+            # FPS and user count
             cv2.putText(frame, f"FPS {fps:.1f}  Users: {len(known_users)}",
                         (10, frame.shape[0] - 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
@@ -526,7 +587,7 @@ def main():
             if show_instructions and instruction:
                 draw_instruction_overlay(frame, instruction, instruction_color, True)
 
-            # Dashboard hook
+            # Dashboard hook - save frame and status
             try:
                 cv2.imwrite(ENGINE_FRAME_PATH, frame, [int(cv2.IMWRITE_JPEG_QUALITY), ENGINE_JPEG_QUALITY])
                 status = {
@@ -540,17 +601,18 @@ def main():
                 }
                 with open(ENGINE_STATUS_PATH, "w", encoding="utf-8") as f:
                     json.dump(status, f)
-            except Exception:
-                pass
+            except Exception as e:
+                pass  # Silent fail for dashboard updates
 
             # Window
             if ENGINE_SHOW:
-                cv2.imshow("Face Recognition Attendance (q=quit, r=reload, i=help, s=stats)", frame)
+                cv2.imshow("Face Recognition Attendance", frame)
                 key = cv2.waitKey(1) & 0xFF
             else:
                 time.sleep(0.01)
                 key = -1
 
+            # Keyboard controls
             if key in (ord('q'), 27):
                 break
             elif key == ord('r'):
@@ -559,19 +621,86 @@ def main():
             elif key == ord('i'):
                 show_instructions = not show_instructions
                 print(f"[engine] instructions {'ON' if show_instructions else 'OFF'}")
+            elif key == ord('g'):
+                # Show gate status
+                now = dt.datetime.now()
+                print("\n" + "="*60)
+                print(f"GATE STATUS - {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                print("="*60)
+                current_gate = gate_for_now()
+                for gid, info in GATES.items():
+                    status = "✓ OPEN" if gid == current_gate else "✗ closed"
+                    print(f"Gate {gid}: {info['label']}")
+                    print(f"  {status}  |  Window: {info['window'][0]} - {info['window'][1]}")
+            elif key == ord('g'):
+                # Show gate status
+                now = dt.datetime.now()
+                print("\n" + "="*60)
+                print(f"GATE STATUS - {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                print("="*60)
+                current_gate = gate_for_now()
+                for gid, info in GATES.items():
+                    status = "✓ OPEN" if gid == current_gate else "  CLOSED"
+                    print(f"Gate {gid}: {info['label']}")
+                    print(f"  {status}  |  Window: {info['window'][0]} - {info['window'][1]}")
+                if current_gate:
+                    print(f"\n→ Current gate: Gate {current_gate}")
+                else:
+                    print(f"\n→ No gate currently open")
+                print("="*60 + "\n")
+            elif key == ord('f'):
+                # Force check-in (bypass gate timing)
+                if voted_uid is not None and voted_name:
+                    force_gate = 1  # Always use gate 1 for forced check-ins
+                    ts = dt.datetime.now()
+                    date_iso = ts.date().isoformat()
+                    
+                    rec = (sess.query(Attendance)
+                           .filter_by(user_id=voted_uid, date=date_iso)
+                           .one_or_none())
+                    if not rec:
+                        rec = Attendance(
+                            user_id=voted_uid,
+                            date=date_iso,
+                            quarter_id=current_quarter_id(ts.date())
+                        )
+                        sess.add(rec)
+                        sess.flush()
+                    
+                    if write_gate_timestamp(rec, force_gate, ts.strftime("%H:%M:%S"), overwrite=True):
+                        try:
+                            sess.commit()
+                            print(f"\n[FORCE] ✓ Check-in recorded for {voted_name} at gate {force_gate}")
+                            print_detection_log(voted_name, force_gate, voted_conf or 0.0, voted_dist or 0.0)
+                            votes.clear()
+                            voted_uid = None
+                            voted_name = None
+                        except Exception as e:
+                            sess.rollback()
+                            print(f"[FORCE] ✗ Database error: {e}")
+                    else:
+                        print(f"[FORCE] ✗ Already logged for {voted_name} at gate {force_gate}")
+                else:
+                    print("[FORCE] ✗ No person recognized to check in")
             elif key == ord('s'):
+                # Show statistics
                 print("\n" + "="*60)
                 print("RECOGNITION STATISTICS")
                 print("="*60)
-                total = stats["total_attempts"]
+                total = stats["successful_matches"] + stats["failed_matches"] + stats["unknown_rejections"]
                 if total > 0:
                     accuracy = (stats["successful_matches"] / total * 100) if total > 0 else 0
                     print(f"Total Recognition Attempts: {total}")
-                    print(f"Successful Matches: {stats['successful_matches']}")
-                    print(f"Failed Matches: {stats['failed_matches']}")
-                    print(f"Unknown Rejections: {stats['unknown_rejections']}")
-                    print(f"Poor Quality Rejections: {stats['poor_quality_rejections']}")
-                    print(f"\nACCURACY RATE: {accuracy:.1f}%")
+                    print(f"  Successful Matches: {stats['successful_matches']}")
+                    print(f"  Failed Matches: {stats['failed_matches']}")
+                    print(f"  Unknown Rejections: {stats['unknown_rejections']}")
+                    print(f"  Poor Quality Rejections: {stats['poor_quality_rejections']}")
+                    print(f"\nAccuracy Rate: {accuracy:.1f}%")
+                    
+                    if stats["gate_logs"]:
+                        print(f"\nCheck-ins by Gate:")
+                        for gid in sorted(stats["gate_logs"].keys()):
+                            print(f"  Gate {gid}: {stats['gate_logs'][gid]} check-ins")
                 else:
                     print("No recognition attempts yet")
                 print("="*60 + "\n")
