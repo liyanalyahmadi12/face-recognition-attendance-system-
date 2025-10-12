@@ -1,356 +1,257 @@
 {% extends "base.html" %}
+{% block title %}Analytics Charts{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center">
+  <!-- Header -->
+  <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-white">Analytics Charts</h1>
+      <p class="text-slate-400 mt-1">Visual insights into attendance patterns</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="refreshBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-lg hover:to-indigo-400">
+        <span class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.5M4.5 9A7.5 7.5 0 1121 12"/></svg>
+          Refresh
+        </span>
+      </button>
+      <button id="autoToggle" class="glass px-4 py-2 rounded-xl text-slate-200 hover:bg-white/10">
+        <span id="autoText">Auto: ON</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Top: Pie + Bar -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card p-6 card-hover">
+      <h2 class="text-xl font-semibold mb-4">Today's Attendance Distribution</h2>
+      <div class="h-72"><canvas id="pieChart"></canvas></div>
+      <div class="grid grid-cols-3 gap-4 mt-6 text-center">
         <div>
-            <h1 class="text-3xl font-bold text-white">Analytics Charts</h1>
-            <p class="text-gray-400 mt-1">Visual insights into attendance patterns</p>
+          <div class="text-2xl font-bold text-emerald-300">{{ pie_data.values[0] }}</div>
+          <div class="text-sm text-slate-400">On Time</div>
         </div>
-        <div class="text-right">
-            <p class="text-sm text-gray-400">Data as of</p>
-            <p class="text-lg font-semibold text-white">{{ today.strftime('%B %d, %Y') }}</p>
+        <div>
+          <div class="text-2xl font-bold text-amber-300">{{ pie_data.values[1] }}</div>
+          <div class="text-sm text-slate-400">Late</div>
         </div>
+        <div>
+          <div class="text-2xl font-bold text-rose-300">{{ pie_data.values[2] }}</div>
+          <div class="text-sm text-slate-400">Absent</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Top Row: Pie Chart + Bar Chart -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Pie Chart - Today's Status -->
-        <div class="glass rounded-lg p-6">
-            <h2 class="text-xl font-bold text-white mb-4">Today's Attendance Distribution</h2>
-            <div class="flex items-center justify-center" style="height: 300px;">
-                <canvas id="pieChart"></canvas>
-            </div>
-            <div class="mt-6 grid grid-cols-3 gap-4 text-center">
-                <div>
-                    <p class="text-2xl font-bold text-green-400">{{ pie_data.values[0] }}</p>
-                    <p class="text-sm text-gray-400">On Time</p>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-yellow-400">{{ pie_data.values[1] }}</p>
-                    <p class="text-sm text-gray-400">Late</p>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-red-400">{{ pie_data.values[2] }}</p>
-                    <p class="text-sm text-gray-400">Absent</p>
-                </div>
-            </div>
-        </div>
+    <div class="card p-6 card-hover">
+      <h2 class="text-xl font-semibold mb-4">7-Day Attendance Trend</h2>
+      <div class="h-72"><canvas id="barChart"></canvas></div>
+      <div class="flex justify-center gap-6 mt-3 text-sm text-slate-400">
+        <div class="flex items-center gap-2"><span class="inline-block h-3 w-3 rounded" style="background:#60a5fa"></span> Present</div>
+        <div class="flex items-center gap-2"><span class="inline-block h-3 w-3 rounded" style="background:#f59e0b"></span> Late</div>
+      </div>
+    </div>
+  </div>
 
-        <!-- Bar Chart - Weekly Trend -->
-        <div class="glass rounded-lg p-6">
-            <h2 class="text-xl font-bold text-white mb-4">7-Day Attendance Trend</h2>
-            <div style="height: 300px;">
-                <canvas id="barChart"></canvas>
-            </div>
-            <div class="mt-4 flex justify-between text-sm text-gray-400">
-                <div class="flex items-center">
-                    <div class="h-3 w-3 bg-blue-500 rounded mr-2"></div>
-                    <span>Present</span>
-                </div>
-                <div class="flex items-center">
-                    <div class="h-3 w-3 bg-orange-500 rounded mr-2"></div>
-                    <span>Late</span>
-                </div>
-            </div>
-        </div>
+  <!-- Heatmap -->
+  <div class="card p-6 card-hover">
+    <h2 class="text-xl font-semibold mb-2">30-Day Attendance Heat Map</h2>
+    <p class="text-slate-400 text-sm mb-4">Darker = higher attendance</p>
+
+    <div class="grid grid-cols-7 gap-2 mb-2">
+      {% for day in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+      <div class="text-center text-xs text-slate-400 font-semibold">{{ day }}</div>
+      {% endfor %}
     </div>
 
-    <!-- Heat Map - 30 Day View -->
-    <div class="glass rounded-lg p-6">
-        <h2 class="text-xl font-bold text-white mb-4">30-Day Attendance Heat Map</h2>
-        <p class="text-sm text-gray-400 mb-6">Attendance rate by day - darker colors indicate higher attendance</p>
-        
-        <div class="grid grid-cols-7 gap-2">
-            <!-- Weekday Headers -->
-            {% for day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] %}
-            <div class="text-center text-xs font-medium text-gray-400">{{ day }}</div>
-            {% endfor %}
-            
-            <!-- Heatmap Cells -->
-            {% for item in heatmap_data %}
-            {% if loop.index0 == 0 %}
-                <!-- Add empty cells to align with correct weekday -->
-                {% set first_day_offset = item.weekday %}
-                {% if first_day_offset == 'Sun' %}{% set offset = 0 %}
-                {% elif first_day_offset == 'Mon' %}{% set offset = 1 %}
-                {% elif first_day_offset == 'Tue' %}{% set offset = 2 %}
-                {% elif first_day_offset == 'Wed' %}{% set offset = 3 %}
-                {% elif first_day_offset == 'Thu' %}{% set offset = 4 %}
-                {% elif first_day_offset == 'Fri' %}{% set offset = 5 %}
-                {% else %}{% set offset = 6 %}{% endif %}
-                
-                {% for i in range(offset) %}
-                <div class="aspect-square"></div>
-                {% endfor %}
-            {% endif %}
-            
-            {% if item.rate >= 80 %}
-                {% set color_class = 'bg-green-600' %}
-            {% elif item.rate >= 60 %}
-                {% set color_class = 'bg-green-700' %}
-            {% elif item.rate >= 40 %}
-                {% set color_class = 'bg-yellow-700' %}
-            {% elif item.rate >= 20 %}
-                {% set color_class = 'bg-orange-700' %}
-            {% elif item.rate > 0 %}
-                {% set color_class = 'bg-red-700' %}
-            {% else %}
-                {% set color_class = 'bg-gray-800' %}
-            {% endif %}
-            
-            <div class="aspect-square {{ color_class }} rounded flex items-center justify-center text-white text-xs font-medium hover:ring-2 hover:ring-blue-500 cursor-pointer transition-all"
-                 title="{{ item.date }}: {{ item.rate }}% attendance">
-                {{ item.day }}
-            </div>
-            {% endfor %}
+    <div class="grid grid-cols-7 gap-2">
+      {% for item in heatmap_data %}
+        {% if loop.index0 == 0 %}
+          {% set first_day_offset = item.weekday %}
+          {% if first_day_offset == 'Sun' %}{% set offset = 0 %}
+          {% elif first_day_offset == 'Mon' %}{% set offset = 1 %}
+          {% elif first_day_offset == 'Tue' %}{% set offset = 2 %}
+          {% elif first_day_offset == 'Wed' %}{% set offset = 3 %}
+          {% elif first_day_offset == 'Thu' %}{% set offset = 4 %}
+          {% elif first_day_offset == 'Fri' %}{% set offset = 5 %}
+          {% else %}{% set offset = 6 %}{% endif %}
+          {% for i in range(offset) %}
+            <div></div>
+          {% endfor %}
+        {% endif %}
+
+        {% if item.rate >= 80 %}{% set color = 'bg-emerald-500' %}
+        {% elif item.rate >= 60 %}{% set color = 'bg-emerald-600' %}
+        {% elif item.rate >= 40 %}{% set color = 'bg-amber-600' %}
+        {% elif item.rate >= 20 %}{% set color = 'bg-orange-700' %}
+        {% elif item.rate > 0 %}{% set color = 'bg-rose-700' %}
+        {% else %}{% set color = 'bg-slate-800' %}{% endif %}
+
+        <div class="aspect-square {{ color }} rounded grid place-items-center text-xs text-white/90 hover:ring-2 hover:ring-sky-400 transition"
+             title="{{ item.date }}: {{ item.rate }}%">
+          {{ item.day }}
         </div>
-        
-        <!-- Legend -->
-        <div class="mt-6 flex items-center justify-center gap-4 text-xs text-gray-400">
-            <span>Less</span>
-            <div class="flex gap-1">
-                <div class="h-4 w-4 bg-gray-800 rounded"></div>
-                <div class="h-4 w-4 bg-red-700 rounded"></div>
-                <div class="h-4 w-4 bg-orange-700 rounded"></div>
-                <div class="h-4 w-4 bg-yellow-700 rounded"></div>
-                <div class="h-4 w-4 bg-green-700 rounded"></div>
-                <div class="h-4 w-4 bg-green-600 rounded"></div>
-            </div>
-            <span>More</span>
-        </div>
+      {% endfor %}
     </div>
 
-    <!-- Quick Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="glass rounded-lg p-4 text-center">
-            <p class="text-gray-400 text-sm">Average Daily Attendance</p>
-            <p class="text-3xl font-bold text-blue-400 mt-2">
-                {{ ((bar_data.present[0] + bar_data.present[1] + bar_data.present[2] + bar_data.present[3] + bar_data.present[4] + bar_data.present[5] + bar_data.present[6]) / 7)|round(1) }}
-            </p>
-        </div>
-        <div class="glass rounded-lg p-4 text-center">
-            <p class="text-gray-400 text-sm">Total Late This Week</p>
-            <p class="text-3xl font-bold text-yellow-400 mt-2">
-                {{ bar_data.late[0] + bar_data.late[1] + bar_data.late[2] + bar_data.late[3] + bar_data.late[4] + bar_data.late[5] + bar_data.late[6] }}
-            </p>
-        </div>
-        <div class="glass rounded-lg p-4 text-center">
-            <p class="text-gray-400 text-sm">Peak Attendance Day</p>
-            <p class="text-3xl font-bold text-green-400 mt-2">
-                {% set max_val = bar_data.present[0] %}
-                {% set max_idx = 0 %}
-                {% for i in range(1, 7) %}
-                    {% if bar_data.present[i] > max_val %}
-                        {% set max_val = bar_data.present[i] %}
-                        {% set max_idx = i %}
-                    {% endif %}
-                {% endfor %}
-                {{ bar_data.labels[max_idx] }}
-            </p>
-        </div>
-        <div class="glass rounded-lg p-4 text-center">
-            <p class="text-gray-400 text-sm">Tracking Period</p>
-            <p class="text-3xl font-bold text-purple-400 mt-2">{{ heatmap_data|length }}</p>
-            <p class="text-xs text-gray-500 mt-1">days</p>
-        </div>
+    <div class="flex items-center justify-center gap-2 mt-4 text-xs text-slate-400">
+      <span>Less</span>
+      <div class="flex gap-1">
+        <span class="h-4 w-4 rounded bg-slate-800"></span>
+        <span class="h-4 w-4 rounded bg-rose-700"></span>
+        <span class="h-4 w-4 rounded bg-orange-700"></span>
+        <span class="h-4 w-4 rounded bg-amber-600"></span>
+        <span class="h-4 w-4 rounded bg-emerald-600"></span>
+        <span class="h-4 w-4 rounded bg-emerald-500"></span>
+      </div>
+      <span>More</span>
     </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="card p-4 text-center">
+      <div class="text-slate-400 text-sm">Avg Daily Attendance</div>
+      <div class="text-3xl font-bold text-sky-300 mt-1">
+        {{ ((bar_data.present[0] + bar_data.present[1] + bar_data.present[2] + bar_data.present[3] + bar_data.present[4] + bar_data.present[5] + bar_data.present[6]) / 7)|round(1) }}
+      </div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-slate-400 text-sm">Total Late This Week</div>
+      <div class="text-3xl font-bold text-amber-300 mt-1">
+        {{ bar_data.late[0] + bar_data.late[1] + bar_data.late[2] + bar_data.late[3] + bar_data.late[4] + bar_data.late[5] + bar_data.late[6] }}
+      </div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-slate-400 text-sm">Peak Attendance Day</div>
+      <div class="text-3xl font-bold text-emerald-300 mt-1">
+        {% set max_val = bar_data.present[0] %}
+        {% set max_idx = 0 %}
+        {% for i in range(1, 7) %}
+          {% if bar_data.present[i] > max_val %}{% set max_val = bar_data.present[i] %}{% set max_idx = i %}{% endif %}
+        {% endfor %}
+        {{ bar_data.labels[max_idx] }}
+      </div>
+    </div>
+    <div class="card p-4 text-center">
+      <div class="text-slate-400 text-sm">Tracking Period</div>
+      <div class="text-3xl font-bold text-fuchsia-300 mt-1">{{ heatmap_data|length }}</div>
+      <div class="text-xs text-slate-500">days</div>
+    </div>
+  </div>
 </div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% block extra_js %}
 <script>
-// Store chart instances globally
 let pieChart, barChart;
+let autoRefreshEnabled = true;
+let refreshInterval;
 
 // Initialize charts
 function initCharts(data) {
-    // Pie Chart
-    const pieCtx = document.getElementById('pieChart').getContext('2d');
-    if (pieChart) pieChart.destroy();
-    
-    pieChart = new Chart(pieCtx, {
-        type: 'doughnut',
-        data: {
-            labels: data.pie_data.labels,
-            datasets: [{
-                data: data.pie_data.values,
-                backgroundColor: data.pie_data.colors,
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#fff', padding: 15, font: { size: 12 } }
-                }
-            }
-        }
-    });
+  // PIE
+  const pieEl = document.getElementById('pieChart');
+  if (!pieEl) return;
+  const pieCtx = pieEl.getContext('2d');
+  if (pieChart) pieChart.destroy();
 
-    // Bar Chart
-    const barCtx = document.getElementById('barChart').getContext('2d');
-    if (barChart) barChart.destroy();
-    
-    barChart = new Chart(barCtx, {
-        type: 'bar',
-        data: {
-            labels: data.bar_data.labels,
-            datasets: [
-                {
-                    label: 'Present',
-                    data: data.bar_data.present,
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 4
-                },
-                {
-                    label: 'Late',
-                    data: data.bar_data.late,
-                    backgroundColor: '#f97316',
-                    borderRadius: 4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { 
-                    stacked: false,
-                    grid: { color: '#374151' },
-                    ticks: { color: '#9ca3af' }
-                },
-                y: { 
-                    stacked: false,
-                    beginAtZero: true,
-                    grid: { color: '#374151' },
-                    ticks: { color: '#9ca3af', stepSize: 1 }
-                }
-            },
-            plugins: {
-                legend: { display: false }
-            }
+  pieChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: data.pie_data.labels,
+      datasets: [{
+        data: data.pie_data.values,
+        backgroundColor: data.pie_data.colors || ['#10b981','#f59e0b','#ef4444'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#9ca3af', padding: 12, boxWidth: 14 }
         }
-    });
-    
-    updateStats(data);
-}
-
-function updateStats(data) {
-    const avgAttendance = (data.bar_data.present.reduce((a, b) => a + b, 0) / 7).toFixed(1);
-    const totalLate = data.bar_data.late.reduce((a, b) => a + b, 0);
-    
-    document.querySelectorAll('.text-3xl.font-bold')[0].textContent = avgAttendance;
-    document.querySelectorAll('.text-3xl.font-bold')[1].textContent = totalLate;
-    
-    const pieStats = document.querySelectorAll('.text-2xl.font-bold');
-    if (pieStats.length >= 3) {
-        pieStats[0].textContent = data.pie_data.values[0];
-        pieStats[1].textContent = data.pie_data.values[1];
-        pieStats[2].textContent = data.pie_data.values[2];
+      },
+      cutout: '60%'
     }
+  });
+
+  // BAR
+  const barEl = document.getElementById('barChart');
+  const barCtx = barEl.getContext('2d');
+  if (barChart) barChart.destroy();
+
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: data.bar_data.labels,
+      datasets: [
+        {
+          label: 'Present',
+          data: data.bar_data.present,
+          backgroundColor: '#60a5fa',
+          borderRadius: 6
+        },
+        {
+          label: 'Late',
+          data: data.bar_data.late,
+          backgroundColor: '#f59e0b',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.08)' }, ticks: { color: '#9ca3af' } },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.08)' }, ticks: { color: '#9ca3af', stepSize: 1 } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
 }
 
 async function refreshData() {
-    try {
-        const response = await fetch('/api/charts_data');
-        const data = await response.json();
-        
-        if (data.ok) {
-            console.log('Charts updated:', new Date().toLocaleTimeString());
-            initCharts(data);
-            updateRefreshTime();
-        }
-    } catch (error) {
-        console.error('Error refreshing charts:', error);
-    }
+  try {
+    const res = await fetch('/api/charts_data');
+    const data = await res.json();
+    if (data.ok) initCharts(data);
+  } catch (e) {
+    console.error('Error refreshing charts:', e);
+  }
 }
 
-function updateRefreshTime() {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString();
-    
-    let refreshTime = document.getElementById('refresh-time');
-    if (!refreshTime) {
-        refreshTime = document.createElement('p');
-        refreshTime.id = 'refresh-time';
-        refreshTime.className = 'text-xs text-gray-500 mt-1';
-        
-        const dateDisplay = document.querySelector('.text-right p:last-child');
-        if (dateDisplay) {
-            dateDisplay.parentNode.appendChild(refreshTime);
-        }
-    }
-    
-    refreshTime.textContent = `Last updated: ${timeStr}`;
-}
+document.addEventListener('DOMContentLoaded', () => {
+  // initial data from server-rendered context
+  const initialData = {
+    pie_data: {{ pie_data|tojson }},
+    bar_data: {{ bar_data|tojson }},
+    heatmap_data: {{ heatmap_data|tojson }}
+  };
+  initCharts(initialData);
 
-document.addEventListener('DOMContentLoaded', function() {
-    const initialData = {
-        pie_data: {{ pie_data|tojson }},
-        bar_data: {{ bar_data|tojson }},
-        heatmap_data: {{ heatmap_data|tojson }}
-    };
-    
-    initCharts(initialData);
-    updateRefreshTime();
-    
-    const header = document.querySelector('.flex.justify-between.items-center');
-    if (header) {
-        const btnContainer = document.createElement('div');
-        btnContainer.className = 'flex items-center space-x-2';
-        
-        const refreshBtn = document.createElement('button');
-        refreshBtn.innerHTML = `
-            <svg class="w-5 h-5 mr-2 inline animate-spin hidden" id="refresh-spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-            <svg class="w-5 h-5 mr-2 inline" id="refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-            Refresh
-        `;
-        refreshBtn.className = 'btn-primary px-4 py-2 rounded-lg text-white font-medium text-sm';
-        refreshBtn.onclick = async function() {
-            document.getElementById('refresh-spinner').classList.remove('hidden');
-            document.getElementById('refresh-icon').classList.add('hidden');
-            await refreshData();
-            document.getElementById('refresh-spinner').classList.add('hidden');
-            document.getElementById('refresh-icon').classList.remove('hidden');
-        };
-        
-        const toggleBtn = document.createElement('button');
-        toggleBtn.innerHTML = `<span id="toggle-text">Auto: ON</span>`;
-        toggleBtn.className = 'glass px-4 py-2 rounded-lg text-gray-300 hover:text-white text-sm';
-        
-        let autoRefreshEnabled = true;
-        let refreshInterval;
-        
-        toggleBtn.onclick = function() {
-            autoRefreshEnabled = !autoRefreshEnabled;
-            document.getElementById('toggle-text').textContent = autoRefreshEnabled ? 'Auto: ON' : 'Auto: OFF';
-            
-            if (autoRefreshEnabled) {
-                refreshInterval = setInterval(refreshData, 30000);
-                toggleBtn.classList.remove('opacity-50');
-            } else {
-                clearInterval(refreshInterval);
-                toggleBtn.classList.add('opacity-50');
-            }
-        };
-        
-        btnContainer.appendChild(refreshBtn);
-        btnContainer.appendChild(toggleBtn);
-        
-        const rightDiv = header.querySelector('.text-right');
-        rightDiv.parentNode.insertBefore(btnContainer, rightDiv);
-        
-        refreshInterval = setInterval(refreshData, 30000);
+  // refresh button
+  document.getElementById('refreshBtn')?.addEventListener('click', refreshData);
+
+  // auto toggle
+  const autoBtn = document.getElementById('autoToggle');
+  const autoText = document.getElementById('autoText');
+  autoBtn?.addEventListener('click', () => {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    autoText.textContent = autoRefreshEnabled ? 'Auto: ON' : 'Auto: OFF';
+    if (autoRefreshEnabled) {
+      refreshInterval = setInterval(refreshData, 30000);
+    } else {
+      clearInterval(refreshInterval);
     }
+  });
+
+  // start auto-refresh
+  refreshInterval = setInterval(refreshData, 30000);
 });
 </script>
-
 {% endblock %}

@@ -1,371 +1,288 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ title }}{% endblock %}</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Custom Styles -->
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        
-        * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-        
-        /* Animated Background Pattern */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
-            animation: backgroundFloat 20s ease-in-out infinite;
-            z-index: 0;
-            pointer-events: none;
-        }
-        
-        @keyframes backgroundFloat {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(50px, -50px) scale(1.1); }
-            66% { transform: translate(-50px, 50px) scale(0.9); }
-        }
-        
-        /* Ensure content stays above background */
-        nav, main, footer {
-            position: relative;
-            z-index: 1;
-        }
-        
-        /* Glassmorphism Effect */
-        .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        /* Card Hover Effect */
-        .card-hover {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .card-hover::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transition: left 0.5s;
-        }
-        
-        .card-hover:hover::before {
-            left: 100%;
-        }
-        
-        .card-hover:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-        
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        /* Flash Messages */
-        .flash-message {
-            animation: slideInRight 0.4s ease-out;
-        }
-        
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        
-        /* Navigation Active State */
-        .nav-link {
-            position: relative;
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-        
-        .nav-link::before {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-            transition: width 0.3s ease;
-        }
-        
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
-            transition: left 0.3s;
-        }
-        
-        .nav-link:hover::after {
-            left: 100%;
-        }
-        
-        .nav-link:hover::before,
-        .nav-link.active::before {
-            width: 100%;
-        }
-        
-        /* Button Styles */
-        .btn-primary {
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-            transition: all 0.3s ease;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
-        }
-        
-        /* Loading Animation */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
-    
-    {% block extra_css %}{% endblock %}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}{{ title }}{% endblock %}</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  {% set __bgimg = page_bg or global_bg %}
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* ---- Layout constants: single source of truth ---- */
+    :root { --sb: 18rem; /* = 288px sidebar width (like Tailwind w-72) */ }
+
+    @media (min-width:768px){
+      .sidebar { width: var(--sb); }
+      .with-sidebar { margin-left: var(--sb); }
+    }
+
+    /* Body background:
+       - Stacks your gradients
+       - Optionally adds a page image under them (if page_bg/global_bg set)
+       - Keeps solid color as final fallback
+    */
+    body{
+      background:
+        radial-gradient(1200px 600px at -10% -10%, rgba(59,130,246,.12) 0%, transparent 60%),
+        radial-gradient(1000px 500px at 110% 20%, rgba(139,92,246,.14) 0%, transparent 60%),
+        radial-gradient(900px 500px at 50% 120%, rgba(16,185,129,.12) 0%, transparent 60%),
+        {% if __bgimg %}url('{{ __bgimg }}') center/cover no-repeat fixed,{% endif %}
+        #0b1220;
+      min-height:100vh;
+      overflow-x:hidden;
+      color:#e5e7eb;
+    }
+
+    /* ---- Animated background (clearly visible) ---- */
+    .fx-bg { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    .fx-bg .layer {
+      position:absolute; inset:-20%;
+      filter: blur(70px); opacity:.30; mix-blend-mode:screen;
+      animation: drift 18s ease-in-out infinite; will-change:transform;
+    }
+    .fx-bg .l1 { background:
+      radial-gradient(40% 60% at 20% 30%, #60a5fa 0%, transparent 60%),
+      radial-gradient(35% 55% at 80% 20%, #a78bfa 0%, transparent 60%);
+    }
+    .fx-bg .l2 { background:
+      radial-gradient(45% 60% at 30% 70%, #10b981 0%, transparent 65%),
+      radial-gradient(30% 45% at 75% 60%, #22d3ee 0%, transparent 70%);
+      animation-duration:22s; animation-delay:.6s; opacity:.26;
+    }
+    .fx-bg .l3 { background:
+      radial-gradient(35% 55% at 65% 35%, #f472b6 0%, transparent 65%),
+      radial-gradient(30% 45% at 40% 80%, #f59e0b 0%, transparent 70%);
+      animation-duration:26s; animation-delay:1.2s; opacity:.22;
+    }
+    .fx-bg .orb {
+      position:absolute; width:460px; height:460px; border-radius:9999px;
+      filter: blur(85px); opacity:.20; will-change:transform;
+      animation: floatY 12s ease-in-out infinite, spin 36s linear infinite;
+    }
+    .fx-bg .o1 { left:-120px; top:12%;  background:#60a5fa; }
+    .fx-bg .o2 { right:-140px; top:55%; background:#a78bfa; animation-delay:.8s,6s; }
+    .fx-bg .o3 { left:25%; bottom:-160px; background:#10b981; animation-delay:1.4s,12s; }
+
+    @keyframes drift {
+      0%{transform:translate3d(0,0,0) scale(1)}
+      25%{transform:translate3d(140px,-90px,0) scale(1.08)}
+      50%{transform:translate3d(-120px,50px,0) scale(.95)}
+      75%{transform:translate3d(80px,120px,0) scale(1.03)}
+      100%{transform:translate3d(0,0,0) scale(1)}
+    }
+    @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-55px)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion:reduce){ .fx-bg .layer,.fx-bg .orb{ animation:none!important; } }
+
+    /* ---- Glass + cards ---- */
+    .glass{ background: rgba(255,255,255,.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.10); }
+    .card{ background: rgba(255,255,255,.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.08); border-radius: 1rem; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+    .card-hover{ transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+    .card-hover:hover{ transform: translateY(-3px); box-shadow: 0 20px 35px -12px rgba(0,0,0,.45); border-color: rgba(255,255,255,.18); }
+
+    /* ---- Scrollbar ---- */
+    ::-webkit-scrollbar{ width:10px; height:10px; } ::-webkit-scrollbar-track{ background:rgba(255,255,255,.04); }
+    ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.18); border-radius:8px; } ::-webkit-scrollbar-thumb:hover{ background:rgba(255,255,255,.26); }
+
+    /* ---- Table helpers ---- */
+    .soft-th{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#94a3b8; font-weight:600; }
+    .soft-td{ font-size:14px; color:#e5e7eb; }
+
+    /* ---- Nav underline shimmer ---- */
+    .nav-link{ position:relative; transition:color .18s ease; }
+    .nav-link::before{ content:""; position:absolute; left:0; bottom:-6px; height:2px; width:0;
+      background:linear-gradient(90deg,#60a5fa,#a78bfa); transition: width .22s ease; }
+    .nav-link:hover::before, .nav-link.active::before{ width:100%; }
+
+    /* ---- Flash ---- */
+    .flash-message{ animation: slideIn .28s ease; }
+    @keyframes slideIn{ from{ transform: translateX(16px); opacity:0; } to{ transform:none; opacity:1; } }
+  </style>
+
+  {% block extra_css %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-    <!-- Navigation -->
-    <nav class="glass border-b border-white/10 sticky top-0 z-40 backdrop-blur-xl">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <!-- Logo -->
-                <div class="flex items-center space-x-3">
-                    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="h-10 w-10 rounded-lg object-cover">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <span class="text-xl font-bold text-white">{{ APP_TITLE }}</span>
-                </div>
-                
-                <!-- Navigation Links -->
-                {% if logged_in %}
-                <div class="hidden md:flex items-center space-x-1">
-                    <a href="{{ url_for('home') }}" class="nav-link px-4 py-2 text-gray-300 hover:text-white {% if request.endpoint == 'home' %}active text-white{% endif %}">
-                        Dashboard
-                    </a>
-                    <a href="{{ url_for('attendance_page') }}" class="nav-link px-4 py-2 text-gray-300 hover:text-white {% if request.endpoint == 'attendance_page' %}active text-white{% endif %}">
-                        Attendance
-                    </a>
-                    <a href="{{ url_for('employees_search') }}" class="nav-link px-4 py-2 text-gray-300 hover:text-white {% if request.endpoint == 'employees_search' %}active text-white{% endif %}">
-                        Employees
-                    </a>
-                    {% if is_admin %}
-                    <a href="{{ url_for('users_page') }}" class="nav-link px-4 py-2 text-gray-300 hover:text-white {% if request.endpoint == 'users_page' %}active text-white{% endif %}">
-                        Manage Users
-                    </a>
-                    <a href="{{ url_for('charts_page') }}" class="nav-link px-4 py-2 text-gray-300 hover:text-white {% if request.endpoint == 'charts_page' %}active text-white{% endif %}">
-                        Charts
-                    </a>
-                    {% endif %}
-                </div>
-                
-                {% endif %}
-                
-                <!-- User Menu - Right Side -->
-                {% if logged_in %}
-                <div class="flex items-center space-x-4">
-                    <div class="hidden md:flex items-center space-x-3 glass px-4 py-2 rounded-lg">
-                        <div class="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                            <span class="text-white font-bold text-sm">{{ username[0].upper() }}</span>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm font-medium text-white">{{ username }}</p>
-                            {% if is_admin %}
-                            <p class="text-xs text-purple-400">Administrator</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <a href="{{ url_for('logout') }}" class="glass px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-red-500/20 hover:border-red-500/50 transition-all duration-300 flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
-                        <span>Logout</span>
-                    </a>
-                </div>
-                {% endif %}
-                
-                <!-- Mobile Menu Button -->
-                <button id="mobile-menu-button" class="md:hidden glass p-2 rounded-lg text-gray-300 hover:text-white">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
-            </div>
+<body class="text-slate-200">
+  <!-- Animated background, behind everything -->
+  <div class="fx-bg" aria-hidden="true">
+    <div class="layer l1"></div>
+    <div class="layer l2"></div>
+    <div class="layer l3"></div>
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+  </div>
+
+  <!-- App shell -->
+  <div class="flex min-h-screen relative z-10 w-full">
+
+    <!-- Mobile overlay -->
+    <div id="overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+
+    <!-- Sidebar (uses --sb) -->
+    <aside id="sidebar"
+           class="sidebar fixed md:static inset-y-0 left-0 z-40 p-4 md:p-6 transform -translate-x-full md:translate-x-0 transition-transform duration-200">
+      <div class="h-full card overflow-y-auto">
+        <div class="flex items-center gap-3 px-3 py-2">
+          <img src="{{ url_for('static', filename='logo.jpg') }}" class="h-10 w-10 rounded-xl object-cover" alt="Logo">
+          <div>
+            <div class="text-lg font-bold">{{ APP_TITLE }}</div>
+            <div class="text-xs text-slate-400">Dashboard</div>
+          </div>
         </div>
-        
-        <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden md:hidden border-t border-white/10">
-            <div class="px-2 pt-2 pb-3 space-y-1">
-                {% if logged_in %}
-                <a href="{{ url_for('home') }}" class="block px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10">Dashboard</a>
-                <a href="{{ url_for('attendance_page') }}" class="block px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10">Attendance</a>
-                <a href="{{ url_for('employees_search') }}" class="block px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10">Employees</a>
-                {% if is_admin %}
-                <a href="{{ url_for('users_page') }}" class="block px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10">Manage Users</a>
-                <a href="{{ url_for('charts_page') }}" class="block px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10">Charts</a>
-                {% endif %}
-                {% endif %}
-            </div>
-        </div>
-    </nav>
-    
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="fixed top-20 right-4 z-50 space-y-2" id="flash-container">
-            {% for category, message in messages %}
-            <div class="flash-message glass rounded-lg shadow-2xl p-4 border-l-4 min-w-[300px] max-w-md
-                {% if category == 'error' %}border-red-500
-                {% elif category == 'warning' %}border-yellow-500
-                {% elif category == 'success' %}border-green-500
-                {% else %}border-blue-500{% endif %}">
-                <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                        {% if category == 'error' %}
-                        <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        {% elif category == 'warning' %}
-                        <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                        </svg>
-                        {% elif category == 'success' %}
-                        <svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        {% else %}
-                        <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        {% endif %}
-                    </div>
-                    <div class="ml-3 flex-1">
-                        <p class="text-sm font-medium text-white">{{ message }}</p>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-white">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            {% endfor %}
+
+        {% if logged_in %}
+        <nav class="mt-6 space-y-1">
+          <a href="{{ url_for('home') }}" class="nav-link flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 {% if request.endpoint=='home' %}bg-white/10 active{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
+            <span>Dashboard</span>
+          </a>
+          <a href="{{ url_for('attendance_page') }}" class="nav-link flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 {% if request.endpoint=='attendance_page' %}bg-white/10 active{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3M3 11h18M5 19h14a2 2 0 002-2v-6H3v6a2 2 0 002 2z"/></svg>
+            <span>Attendance</span>
+          </a>
+          <a href="{{ url_for('employees_search') }}" class="nav-link flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 {% if request.endpoint=='employees_search' %}bg-white/10 active{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m0-6a4 4 0 118 0 4 4 0 01-8 0z"/></svg>
+            <span>Employees</span>
+          </a>
+          {% if is_admin %}
+          <a href="{{ url_for('users_page') }}" class="nav-link flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 {% if request.endpoint=='users_page' %}bg-white/10 active{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9a3 3 0 11-6 0 3 3 0 016 0zM6 9a3 3 0 11-6 0 3 3 0 016 0zM18 22a6 6 0 00-12 0"/></svg>
+            <span>Manage Users</span>
+          </a>
+          <a href="{{ url_for('charts_page') }}" class="nav-link flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 {% if request.endpoint=='charts_page' %}bg-white/10 active{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3v18M4 12h18"/></svg>
+            <span>Charts</span>
+          </a>
+          {% endif %}
+        </nav>
+
+        <div class="mt-8 p-4 rounded-2xl bg-gradient-to-br from-slate-800/70 to-slate-700/40 border border-white/10">
+          <div class="text-sm text-slate-300 font-medium mb-2">Need help?</div>
+          <p class="text-xs text-slate-400 mb-3">Docs, health checks and support.</p>
+          <div class="flex gap-2">
+            <a href="/health" class="px-3 py-1.5 rounded-lg bg-white/10 text-xs hover:bg-white/20">Health</a>
+            <a href="#" class="px-3 py-1.5 rounded-lg bg-white/10 text-xs hover:bg-white/20">Support</a>
+          </div>
         </div>
         {% endif %}
-    {% endwith %}
-    
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {% block content %}{% endblock %}
-    </main>
-    
-    <!-- Footer -->
-    <footer class="mt-auto py-6 border-t border-white/10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <p class="text-gray-400 text-sm">
-                    &copy; {{ now().year }} {{ APP_TITLE }}. All rights reserved.
-                </p>
-                <div class="flex space-x-6 mt-4 md:mt-0">
-                    <a href="/health" class="text-gray-400 hover:text-white text-sm transition-colors">System Health</a>
-                    <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Support</a>
-                    <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Documentation</a>
-                </div>
-            </div>
-        </div>
-    </footer>
-    
-    <!-- Mobile Menu Toggle Script -->
-    <script>
-        const mobileMenuButton = document.getElementById('mobile-menu-button');
-        const mobileMenu = document.getElementById('mobile-menu');
-        
-        if (mobileMenuButton && mobileMenu) {
-            mobileMenuButton.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-            });
-        }
-        
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(() => {
-            const flashContainer = document.getElementById('flash-container');
-            if (flashContainer) {
-                flashContainer.style.transition = 'opacity 0.5s';
-                flashContainer.style.opacity = '0';
-                setTimeout(() => flashContainer.remove(), 500);
-            }
-        }, 5000);
-    </script>
+      </div>
+    </aside>
 
-    {% block extra_js %}{% endblock %}
+    <!-- Content column (uses --sb for perfect alignment) -->
+    <div class="with-sidebar flex-1 flex flex-col ml-0">
+      <!-- Top bar -->
+      <header class="sticky top-0 z-30 glass border-b border-white/10 backdrop-blur-xl">
+        <div class="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <button id="sidebar-toggle" class="md:hidden p-2 rounded-lg hover:bg-white/10" aria-label="Toggle sidebar" aria-expanded="false">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 class="text-lg font-semibold tracking-tight">{{ title or 'Dashboard' }}</h1>
+          </div>
+
+          {% if logged_in %}
+          <div class="flex items-center gap-4">
+            <div class="hidden sm:flex items-center gap-3 glass px-3 py-1.5 rounded-xl">
+              <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-fuchsia-500 grid place-items-center">
+                <span class="text-white text-sm font-bold">{{ (username or 'U')[0]|upper }}</span>
+              </div>
+              <div>
+                <div class="text-sm font-medium">{{ username }}</div>
+                {% if is_admin %}<div class="text-[11px] text-fuchsia-300">Administrator</div>{% endif %}
+              </div>
+            </div>
+
+            <a href="{{ url_for('logout') }}" class="px-3 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500/80 hover:to-amber-400 text-white text-sm shadow-lg">
+              Logout
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </header>
+
+      <!-- Flash -->
+      {% with messages=get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div id="flash-container" class="fixed top-20 right-4 z-40 space-y-2">
+        {% for category, message in messages %}
+        <div class="flash-message card border-l-4 min-w-[300px] max-w-md p-4
+          {% if category=='error' %}border-rose-500{% elif category=='warning' %}border-amber-500{% elif category=='success' %}border-emerald-500{% else %}border-sky-500{% endif %}">
+          <div class="text-sm">{{ message }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      <!-- Main -->
+      <main class="px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Footer -->
+      <footer class="mt-auto py-6 border-t border-white/10">
+        <div class="px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between">
+          <p class="text-slate-400 text-sm">&copy; {{ now().year }} {{ APP_TITLE }}. All rights reserved.</p>
+          <div class="flex gap-6 mt-3 md:mt-0 text-sm">
+            <a class="text-slate-400 hover:text-white" href="/health">System Health</a>
+            <a class="text-slate-400 hover:text-white" href="#">Support</a>
+            <a class="text-slate-400 hover:text-white" href="#">Documentation</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const toggle  = document.getElementById('sidebar-toggle');
+    const overlay = document.getElementById('overlay');
+
+    function setSidebar(open){
+      sidebar.classList.toggle('-translate-x-full', !open);
+      sidebar.classList.toggle('translate-x-0', open);
+      overlay.classList.toggle('hidden', !open);
+      toggle?.setAttribute('aria-expanded', String(open));
+      try { localStorage.setItem('sb-open', open ? '1' : '0'); } catch(e){}
+    }
+
+    (function initSidebar(){
+      const saved = (typeof localStorage !== 'undefined') ? localStorage.getItem('sb-open') : null;
+      const shouldOpen = saved === '1';
+      if (window.matchMedia('(min-width: 768px)').matches) {
+        sidebar.classList.remove('-translate-x-full');
+        sidebar.classList.add('translate-x-0');
+      } else {
+        setSidebar(shouldOpen);
+      }
+    })();
+
+    toggle?.addEventListener('click', () => {
+      const open = sidebar.classList.contains('-translate-x-full');
+      setSidebar(open);
+    });
+    overlay.addEventListener('click', () => setSidebar(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setSidebar(false); });
+
+    // auto-hide flash
+    setTimeout(() => {
+      const el = document.getElementById('flash-container');
+      if (!el) return;
+      el.style.transition = 'opacity .5s';
+      el.style.opacity = '0';
+      setTimeout(()=>el.remove(), 500);
+    }, 5000);
+  </script>
+
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

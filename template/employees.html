@@ -2,88 +2,279 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Header with Search -->
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-        <div>
-            <h1 class="text-3xl font-bold text-white">Employee Reports</h1>
-            <p class="text-gray-400 mt-1">{{ start.strftime('%b %d') }} - {{ end.strftime('%b %d, %Y') }}</p>
+
+  <!-- Header + Controls -->
+  <div class="card glass rounded-2xl p-5">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-white">Employee Reports</h1>
+        <p class="text-slate-400 mt-1">{{ start.strftime('%b %d') }} - {{ end.strftime('%b %d, %Y') }}</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 md:gap-3">
+        <!-- Instant client-side search (keeps your server search too) -->
+        <div class="relative">
+          <input id="clientSearch" type="text" placeholder="Quick search…"
+                 class="w-44 md:w-64 glass px-4 py-2 rounded-xl text-white placeholder-slate-500 border border-white/10 focus:outline-none"
+                 value="{{ search or '' }}">
+          <svg class="w-5 h-5 text-slate-400 absolute right-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
         </div>
-        
-        <div class="flex space-x-3">
-            <form method="GET" class="flex space-x-2">
-                <input type="text" name="search" value="{{ search }}" placeholder="Search by name..." class="glass px-4 py-2 rounded-lg text-white placeholder-gray-500 border border-blue-500/30 focus:outline-none focus:border-blue-500">
-                <select name="period" onchange="this.form.submit()" class="glass px-4 py-2 rounded-lg text-white border border-blue-500/30">
-                    <option value="week" {% if period == 'week' %}selected{% endif %}>This Week</option>
-                    <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
-                    <option value="all" {% if period == 'all' %}selected{% endif %}>All Time</option>
-                </select>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white transition-colors">
-                    Search
-                </button>
-            </form>
-        </div>
+
+        <!-- Server filters (unchanged) -->
+        <form method="GET" class="flex items-center gap-2">
+          <input type="hidden" name="search" value="{{ search }}">
+          <select name="period" onchange="this.form.submit()" class="glass px-4 py-2 rounded-xl text-white border border-white/10">
+            <option value="week"  {% if period == 'week'  %}selected{% endif %}>This Week</option>
+            <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
+            <option value="all"   {% if period == 'all'   %}selected{% endif %}>All Time</option>
+          </select>
+          <button type="submit" class="px-4 py-2 rounded-xl text-white text-sm font-medium bg-gradient-to-r from-sky-500 to-indigo-500 hover:to-indigo-400 shadow-lg">
+            Search
+          </button>
+        </form>
+
+        <!-- Print/Export (client) -->
+        <button onclick="window.print()"
+                class="glass px-4 py-2 rounded-xl text-slate-200 hover:text-white text-sm">
+          Print
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card card-hover overflow-hidden">
+    <!-- Table toolbar -->
+    <div class="px-5 py-3 flex items-center justify-between border-b border-white/10 text-xs text-slate-400">
+      <div><span id="visibleCount">{{ employees|length }}</span> results</div>
+      <div class="flex items-center gap-2">
+        <span>Rows per page</span>
+        <select id="pageSize" class="glass px-2 py-1 rounded-lg border border-white/10">
+          <option>10</option><option selected>25</option><option>50</option><option>100</option>
+        </select>
+      </div>
     </div>
 
-    <!-- Employee Table -->
-    <div class="glass rounded-lg overflow-hidden">
-        <table class="w-full">
-            <thead class="bg-blue-900/30 border-b border-blue-700/30">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Name</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Email</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">ID</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase">Present</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase">Absent</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase">Late</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase">Rate</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-700/30">
-                {% for emp in employees %}
-                <tr class="hover:bg-blue-900/10">
-                    <td class="px-6 py-4">
-                        <div class="flex items-center">
-                            <div class="h-10 w-10 rounded-full bg-blue-900/50 flex items-center justify-center mr-3">
-                                <span class="text-blue-400 font-bold">{{ emp.name[0] }}</span>
-                            </div>
-                            <span class="text-white font-medium">{{ emp.name }}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-gray-400 text-sm">{{ emp.email or '-' }}</td>
-                    <td class="px-6 py-4 text-gray-400 text-sm">{{ emp.external_id or '-' }}</td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-3 py-1 rounded-full text-xs bg-green-900/30 text-green-400">
-                            {{ emp.present }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-3 py-1 rounded-full text-xs bg-red-900/30 text-red-400">
-                            {{ emp.absent }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="px-3 py-1 rounded-full text-xs bg-yellow-900/30 text-yellow-400">
-                            {{ emp.late }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="flex items-center justify-center space-x-2">
-                            <div class="w-16 bg-gray-700 rounded-full h-2">
-                                <div class="bg-blue-500 h-2 rounded-full" style="width: {{ emp.attendance_rate }}%"></div>
-                            </div>
-                            <span class="text-white text-sm font-medium">{{ emp.attendance_rate }}%</span>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
-        {% if not employees %}
-        <div class="text-center py-12 text-gray-400">
-            <p>No employee records found</p>
-        </div>
-        {% endif %}
+    <div class="overflow-auto">
+      <table class="w-full soft-table" id="empTable">
+        <thead class="sticky top-0 z-10 bg-slate-900/70 backdrop-blur border-b border-white/10">
+          <tr>
+            <th class="px-5 py-3 text-left">
+              <button class="sort-btn flex items-center gap-2" data-col="name">Name
+                <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
+                </svg>
+              </button>
+            </th>
+            <th class="px-5 py-3 text-left">
+              <button class="sort-btn flex items-center gap-2" data-col="email">Email
+                <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
+                </svg>
+              </button>
+            </th>
+            <th class="px-5 py-3 text-left">
+              <button class="sort-btn flex items-center gap-2" data-col="id">ID
+                <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
+                </svg>
+              </button>
+            </th>
+            <th class="px-5 py-3 text-center">
+              <button class="sort-btn flex items-center gap-2 mx-auto" data-col="present">Present</button>
+            </th>
+            <th class="px-5 py-3 text-center">
+              <button class="sort-btn flex items-center gap-2 mx-auto" data-col="absent">Absent</button>
+            </th>
+            <th class="px-5 py-3 text-center">
+              <button class="sort-btn flex items-center gap-2 mx-auto" data-col="late">Late</button>
+            </th>
+            <th class="px-5 py-3 text-center">
+              <button class="sort-btn flex items-center gap-2 mx-auto" data-col="rate">Rate</button>
+            </th>
+          </tr>
+        </thead>
+
+        <tbody id="empBody" class="divide-y divide-white/5">
+          {% for emp in employees %}
+          {% set rate = emp.attendance_rate or 0 %}
+          {% if rate >= 80 %}
+            {% set bar = 'bg-emerald-500' %}{% set pill = 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20' %}
+          {% elif rate >= 60 %}
+            {% set bar = 'bg-sky-500' %}{% set pill = 'text-sky-300 bg-sky-500/10 ring-sky-500/20' %}
+          {% elif rate >= 40 %}
+            {% set bar = 'bg-amber-500' %}{% set pill = 'text-amber-300 bg-amber-500/10 ring-amber-500/20' %}
+          {% else %}
+            {% set bar = 'bg-rose-500' %}{% set pill = 'text-rose-300 bg-rose-500/10 ring-rose-500/20' %}
+          {% endif %}
+          <tr class="hover:bg-white/5"
+              data-name="{{ emp.name|lower }}"
+              data-email="{{ (emp.email or '')|lower }}"
+              data-id="{{ (emp.external_id or '')|lower }}"
+              data-present="{{ emp.present or 0 }}"
+              data-absent="{{ emp.absent or 0 }}"
+              data-late="{{ emp.late or 0 }}"
+              data-rate="{{ rate }}">
+            <!-- Name -->
+            <td class="px-5 py-3">
+              <div class="flex items-center">
+                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center text-white font-semibold mr-3">
+                  {{ emp.name[0] }}
+                </div>
+                <span class="text-sm font-medium">{{ emp.name }}</span>
+              </div>
+            </td>
+
+            <!-- Email -->
+            <td class="px-5 py-3 text-sm text-slate-300">{{ emp.email or '-' }}</td>
+
+            <!-- ID -->
+            <td class="px-5 py-3 text-sm text-slate-300">{{ emp.external_id or '-' }}</td>
+
+            <!-- Present -->
+            <td class="px-5 py-3 text-center">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs {{ pill }} ring-1">
+                {{ emp.present }}
+              </span>
+            </td>
+
+            <!-- Absent -->
+            <td class="px-5 py-3 text-center">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-rose-500/10 text-rose-300 ring-1 ring-rose-500/20">
+                {{ emp.absent }}
+              </span>
+            </td>
+
+            <!-- Late -->
+            <td class="px-5 py-3 text-center">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/20">
+                {{ emp.late }}
+              </span>
+            </td>
+
+            <!-- Rate -->
+            <td class="px-5 py-3">
+              <div class="flex items-center justify-center gap-3">
+                <div class="w-24 bg-white/10 rounded-full h-2.5 overflow-hidden ring-1 ring-white/10">
+                  <div class="{{ bar }} h-2.5" style="width: {{ rate }}%"></div>
+                </div>
+                <span class="text-sm font-medium">{{ rate }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if not employees %}
+      <div class="text-center py-12 text-slate-400">No employee records found</div>
+      {% endif %}
     </div>
+
+    <!-- Pagination -->
+    <div class="px-5 py-3 border-t border-white/10 flex items-center justify-between text-sm text-slate-300">
+      <div>Showing <span id="rangeStart">1</span>–<span id="rangeEnd">{{ employees|length }}</span> of <span id="totalCount">{{ employees|length }}</span></div>
+      <div class="flex items-center gap-2">
+        <button id="prevBtn" class="glass px-3 py-1.5 rounded-lg disabled:opacity-40">Prev</button>
+        <span id="pageInfo" class="min-w-[80px] text-center">1 / 1</span>
+        <button id="nextBtn" class="glass px-3 py-1.5 rounded-lg disabled:opacity-40">Next</button>
+      </div>
+    </div>
+  </div>
 </div>
+
+<!-- Sorting / Search / Pagination (client) -->
+<script>
+(function(){
+  const tbody = document.getElementById('empBody');
+  const rows  = Array.from(tbody.querySelectorAll('tr'));
+  const pageSizeSel = document.getElementById('pageSize');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const pageInfo = document.getElementById('pageInfo');
+  const rangeStart = document.getElementById('rangeStart');
+  const rangeEnd = document.getElementById('rangeEnd');
+  const totalCount = document.getElementById('totalCount');
+  const visibleCount = document.getElementById('visibleCount');
+  const clientSearch = document.getElementById('clientSearch');
+
+  let current = 1;
+  let filtered = rows.slice();
+  let sortKey = null;
+  let sortDir = 1; // 1 asc, -1 desc
+
+  function getVal(tr, key){
+    switch(key){
+      case 'name':  return tr.dataset.name || '';
+      case 'email': return tr.dataset.email || '';
+      case 'id':    return tr.dataset.id || '';
+      case 'present':
+      case 'absent':
+      case 'late':
+      case 'rate':  return parseFloat(tr.dataset[key] || '0');
+      default:      return '';
+    }
+  }
+
+  function render(){
+    const size = parseInt(pageSizeSel.value, 10);
+    const pages = Math.max(1, Math.ceil(filtered.length / size));
+    current = Math.min(current, pages);
+
+    rows.forEach(r => r.style.display = 'none');
+    const start = (current - 1) * size;
+    const end   = Math.min(start + size, filtered.length);
+    for (let i = start; i < end; i++) filtered[i].style.display = '';
+
+    pageInfo.textContent = `${pages === 0 ? 0 : current} / ${pages}`;
+    rangeStart.textContent = filtered.length ? (start + 1) : 0;
+    rangeEnd.textContent = end;
+    totalCount.textContent = rows.length;
+    visibleCount.textContent = filtered.length;
+
+    prevBtn.disabled = current <= 1;
+    nextBtn.disabled = current >= pages;
+  }
+
+  function applySearch(){
+    const q = (clientSearch?.value || '').trim().toLowerCase();
+    filtered = rows.filter(r =>
+      r.dataset.name.includes(q) ||
+      r.dataset.email.includes(q) ||
+      r.dataset.id.includes(q)
+    );
+    current = 1;
+    applySort(false);
+  }
+
+  function applySort(toggle=true){
+    if (!sortKey) { render(); return; }
+    if (toggle) sortDir *= -1;
+    filtered.sort((a,b)=>{
+      const va = getVal(a, sortKey), vb = getVal(b, sortKey);
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
+      return va.localeCompare(vb) * sortDir;
+    });
+    render();
+  }
+
+  document.querySelectorAll('.sort-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const col = btn.dataset.col;
+      sortKey = (sortKey === col) ? col : col; // set; toggle handled in applySort
+      applySort(true);
+    });
+  });
+
+  pageSizeSel.addEventListener('change', ()=>{ current = 1; render(); });
+  prevBtn.addEventListener('click', ()=>{ current--; render(); });
+  nextBtn.addEventListener('click', ()=>{ current++; render(); });
+  if (clientSearch) clientSearch.addEventListener('input', applySearch);
+
+  // initial paint
+  render();
+})();
+</script>
 {% endblock %}

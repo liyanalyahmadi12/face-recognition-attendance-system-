@@ -2,98 +2,289 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-white">User Management</h1>
-            <p class="text-gray-400 mt-1">Manage enrolled users</p>
+
+  <!-- Header / Toolbar -->
+  <div class="card rounded-2xl p-5">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-white">User Management</h1>
+        <p class="text-slate-400 mt-1">Manage enrolled users</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 md:gap-3">
+        <!-- Quick search -->
+        <div class="relative">
+          <input id="userSearch" type="text" placeholder="Search name or email…"
+                 class="w-48 md:w-72 glass px-4 py-2 rounded-xl text-white placeholder-slate-500 border border-white/10 focus:outline-none">
+          <svg class="w-5 h-5 text-slate-400 absolute right-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
         </div>
-        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white transition-colors">
-            + Add User
+
+        <!-- Page size -->
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <span>Rows:</span>
+          <select id="pageSize" class="glass px-2 py-1 rounded-lg border border-white/10">
+            <option>9</option><option selected>12</option><option>18</option><option>24</option>
+          </select>
+        </div>
+
+        <!-- Add user -->
+        <button onclick="openAddModal()" class="px-4 py-2 rounded-xl text-white text-sm font-medium bg-gradient-to-r from-sky-500 to-indigo-500 hover:to-indigo-400 shadow-lg">
+          + Add User
         </button>
+      </div>
     </div>
 
-    <!-- Users Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for user in users %}
-        <div class="glass rounded-lg p-6 card-hover">
-            <div class="flex items-start space-x-4">
-                <div class="h-16 w-16 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">
-                    <span class="text-2xl font-bold text-blue-400">{{ user.name[0] }}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <h3 class="text-lg font-semibold text-white truncate">{{ user.name }}</h3>
-                    {% if user.email %}
-                    <p class="text-sm text-gray-400 truncate">{{ user.email }}</p>
-                    {% endif %}
-                    {% if user.external_id %}
-                    <p class="text-xs text-gray-500 mt-1">ID: {{ user.external_id }}</p>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="mt-4 flex space-x-2">
-                <form method="POST" action="{{ url_for('users_delete', user_id=user.user_id) }}" onsubmit="return confirm('Delete {{ user.name }}?')" class="flex-1">
-                    <button type="submit" class="w-full bg-red-900/30 hover:bg-red-900/50 text-red-400 px-3 py-2 rounded text-sm transition-colors">
-                        Delete
-                    </button>
-                </form>
-            </div>
+    <!-- Small stats -->
+    <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+      <div><span id="visibleCount">{{ users|length }}</span> users</div>
+      <div class="hidden md:block">•</div>
+      <div>Showing <span id="rangeStart">1</span>–<span id="rangeEnd">{{ users|length }}</span></div>
+    </div>
+  </div>
+
+  <!-- Users Grid -->
+  <div id="usersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for user in users %}
+    <div class="user-card glass rounded-2xl p-6 card-hover"
+         data-name="{{ user.name|lower }}"
+         data-email="{{ (user.email or '')|lower }}"
+         data-id="{{ (user.external_id or '')|lower }}">
+      <div class="flex items-start gap-4">
+        {% if user.photo %}
+          <img src="{{ user.photo }}" alt="{{ user.name }}" class="h-16 w-16 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0">
+        {% else %}
+          <div class="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center text-white text-2xl font-bold flex-shrink-0">
+            {{ user.name[0] }}
+          </div>
+        {% endif %}
+
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-white truncate">{{ user.name }}</h3>
+            {% if user.external_id %}
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 ring-1 ring-white/10 shrink-0">
+              ID: {{ user.external_id }}
+            </span>
+            {% endif %}
+          </div>
+
+          {% if user.email %}
+          <p class="text-sm text-slate-300 truncate mt-0.5">{{ user.email }}</p>
+          {% else %}
+          <p class="text-sm text-slate-500 mt-0.5">—</p>
+          {% endif %}
         </div>
-        {% endfor %}
-    </div>
+      </div>
 
-    {% if not users %}
-    <div class="glass rounded-lg p-12 text-center">
-        <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-        </svg>
-        <p class="text-gray-400">No users enrolled yet</p>
-        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="mt-4 text-blue-400 hover:text-blue-300">
-            Add your first user
-        </button>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Add User Modal -->
-<div id="addUserModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-    <div class="glass rounded-lg max-w-md w-full p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-white">Add New User</h2>
-            <button onclick="document.getElementById('addUserModal').classList.add('hidden')" class="text-gray-400 hover:text-white">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-        
-        <form method="POST" action="{{ url_for('users_add') }}" enctype="multipart/form-data" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Name *</label>
-                <input type="text" name="name" required class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                <input type="email" name="email" class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Employee ID</label>
-                <input type="text" name="external_id" class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Photo *</label>
-                <input type="file" name="photo" accept="image/*" required class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
-                <p class="text-xs text-gray-500 mt-1">Face the camera directly, good lighting, neutral expression</p>
-            </div>
-            
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
-                Enroll User
-            </button>
+      <div class="mt-5 flex gap-2">
+        <form method="POST" action="{{ url_for('users_delete', user_id=user.user_id) }}"
+              onsubmit="return confirm('Delete {{ user.name }}?')" class="flex-1">
+          <button type="submit"
+                  class="w-full px-3 py-2 rounded-lg text-sm bg-rose-500/10 text-rose-300 ring-1 ring-rose-500/20 hover:bg-rose-500/20">
+            Delete
+          </button>
         </form>
+      </div>
     </div>
+    {% endfor %}
+  </div>
+
+  {% if not users %}
+  <div class="card p-12 text-center">
+    <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+    <p class="text-slate-400">No users enrolled yet</p>
+    <button onclick="openAddModal()" class="mt-4 text-sky-300 hover:text-white">Add your first user</button>
+  </div>
+  {% endif %}
+
+  <!-- Pagination -->
+  <div class="card px-5 py-3 flex items-center justify-between text-sm text-slate-300">
+    <div>Page <span id="pageInfo">1 / 1</span></div>
+    <div class="flex items-center gap-2">
+      <button id="prevBtn" class="glass px-3 py-1.5 rounded-lg disabled:opacity-40">Prev</button>
+      <button id="nextBtn" class="glass px-3 py-1.5 rounded-lg disabled:opacity-40">Next</button>
+    </div>
+  </div>
 </div>
+
+<!-- Add User Modal (scroll-safe with sticky footer) -->
+<div id="addUserModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <!-- backdrop -->
+  <div class="absolute inset-0 bg-black/70" onclick="closeAddModal()"></div>
+
+  <!-- modal -->
+  <div class="relative glass rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+    <div class="flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+        <h2 class="text-xl font-bold text-white">Add New User</h2>
+        <button onclick="closeAddModal()" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body (scrollable) -->
+      <form id="addUserForm" method="POST" action="{{ url_for('users_add') }}"
+            enctype="multipart/form-data"
+            class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Name *</label>
+          <input id="nameInput" type="text" name="name" required
+                 class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+          <input type="email" name="email"
+                 class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Employee ID</label>
+          <input type="text" name="external_id"
+                 class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <!-- Drag & Drop uploader with preview -->
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Photo *</label>
+          <div id="dropZone"
+               class="group relative border-2 border-dashed border-white/15 rounded-xl p-4 hover:border-white/25 transition-colors">
+            <input id="fileInput" type="file" name="photo" accept="image/*" required
+                   class="absolute inset-0 opacity-0 cursor-pointer">
+            <div class="flex items-center gap-3 text-slate-300 pointer-events-none">
+              <div class="h-12 w-12 rounded-xl bg-white/10 grid place-items-center">
+                <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6H17a4 4 0 010 8h-1M12 12v9m0-9l-3 3m3-3l3 3"/>
+                </svg>
+              </div>
+              <div>
+                <div class="text-sm font-medium">Drop image here, or click to browse</div>
+                <div class="text-xs text-slate-400">JPG/PNG, ≤ 5MB</div>
+              </div>
+            </div>
+            <!-- fixed preview height keeps layout stable -->
+            <img id="previewImg"
+                 class="hidden mt-4 w-full h-56 object-cover rounded-lg ring-1 ring-white/10"
+                 alt="Preview">
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Face the camera directly, good lighting, neutral expression</p>
+        </div>
+      </form>
+
+      <!-- Sticky footer (button never disappears) -->
+      <div class="sticky bottom-0 bg-[#0b1220]/85 backdrop-blur border-t border-white/10 px-6 py-4">
+        <button type="submit" form="addUserForm"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+          Enroll User
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page JS -->
+<script>
+/* ---------- Add User Modal helpers ---------- */
+function openAddModal(){ document.getElementById('addUserModal').classList.remove('hidden'); }
+function closeAddModal(){ document.getElementById('addUserModal').classList.add('hidden'); }
+
+// Preview & basic validation
+(function(){
+  const fileInput = document.getElementById('fileInput');
+  const preview   = document.getElementById('previewImg');
+  const dropZone  = document.getElementById('dropZone');
+  const form      = document.getElementById('addUserForm');
+  const nameInput = document.getElementById('nameInput');
+
+  function showPreview(file){
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Image too large (max 5MB).'); fileInput.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.classList.remove('hidden'); };
+    reader.readAsDataURL(file);
+  }
+  fileInput?.addEventListener('change', e => showPreview(e.target.files[0]));
+
+  // Drag over style
+  ;['dragenter','dragover'].forEach(evt => dropZone?.addEventListener(evt, e => {
+    e.preventDefault(); e.stopPropagation(); dropZone.classList.add('ring-2','ring-sky-400/40');
+  }));
+  ;['dragleave','drop'].forEach(evt => dropZone?.addEventListener(evt, e => {
+    e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('ring-2','ring-sky-400/40');
+  }));
+  dropZone?.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file) { fileInput.files = e.dataTransfer.files; showPreview(file); }
+  });
+
+  // Basic client-side checks
+  form?.addEventListener('submit', (e)=>{
+    if (!nameInput.value.trim()) { e.preventDefault(); alert('Name is required.'); return; }
+    if (!fileInput.files.length) { e.preventDefault(); alert('Photo is required.'); return; }
+  });
+})();
+
+/* ---------- Client-side search + pagination for the grid ---------- */
+(function(){
+  const grid = document.getElementById('usersGrid');
+  const cards = Array.from(grid?.querySelectorAll('.user-card') || []);
+  const search = document.getElementById('userSearch');
+  const pageSizeSel = document.getElementById('pageSize');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const pageInfo = document.getElementById('pageInfo');
+  const visibleCount = document.getElementById('visibleCount');
+  const rangeStart = document.getElementById('rangeStart');
+  const rangeEnd = document.getElementById('rangeEnd');
+
+  let current = 1;
+  let filtered = cards.slice();
+
+  function render(){
+    const size = parseInt(pageSizeSel.value, 10);
+    const pages = Math.max(1, Math.ceil(filtered.length / size));
+    current = Math.min(current, pages);
+
+    cards.forEach(c => c.classList.add('hidden'));
+    const start = (current - 1) * size;
+    const end   = Math.min(start + size, filtered.length);
+    for (let i=start; i<end; i++) filtered[i].classList.remove('hidden');
+
+    pageInfo.textContent = `${pages === 0 ? 0 : current} / ${pages}`;
+    visibleCount.textContent = filtered.length;
+    rangeStart.textContent = filtered.length ? (start+1) : 0;
+    rangeEnd.textContent = end;
+
+    prevBtn.disabled = current <= 1;
+    nextBtn.disabled = current >= pages;
+  }
+
+  function applySearch(){
+    const q = (search?.value || '').trim().toLowerCase();
+    filtered = cards.filter(c =>
+      (c.dataset.name || '').includes(q) ||
+      (c.dataset.email || '').includes(q) ||
+      (c.dataset.id || '').includes(q)
+    );
+    current = 1;
+    render();
+  }
+
+  pageSizeSel?.addEventListener('change', ()=>{ current = 1; render(); });
+  prevBtn?.addEventListener('click', ()=>{ current--; render(); });
+  nextBtn?.addEventListener('click', ()=>{ current++; render(); });
+  search?.addEventListener('input', applySearch);
+
+  // initial
+  render();
+})();
+</script>
 {% endblock %}
